@@ -39,12 +39,11 @@ python3 -m http.server 8899
 ## ไฟล์ในโปรเจกต์
 
 - `index.html` — ตัวเกมทั้งหมด (HTML + CSS + JS ในไฟล์เดียว) รวมคลังคำศัพท์ที่ตัวแปร `allQuestions`
-- `แม่กก.html` — ทางลัดตามชื่อมาตรา เปิดแล้วเด้งไป `index.html` (แก้เกมที่ `index.html` ที่เดียวพอ)
 
 ## Deploy
 
 โฮสต์ผ่าน GitHub Pages (branch `main`, โฟลเดอร์ราก) — push แล้วอัปเดตอัตโนมัติ
-เปิดได้ทั้งที่ราก (`/`) และ `/แม่กก.html` (URL ภาษาไทยจะถูก encode ให้อัตโนมัติ)
+เปิดที่ https://ouzazu001.github.io/maekob-game/
 
 ## หมายเหตุเรื่องรหัสผ่าน
 
