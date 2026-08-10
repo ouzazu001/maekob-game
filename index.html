@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>เกม AI มาตราตัวสะกด แม่กบ</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <!-- TensorFlow.js + MoveNet (ตรึงเวอร์ชันไว้ เพื่อไม่ให้ CDN อัปเดตแล้วเกมพัง) -->
+    <script defer crossorigin="anonymous" integrity="sha384-ZVckeGw84RpbmPMzx1s9LFUqIaeIsG46rmlH/HynDuJikkmGLnTDnEmT0CrKI6Yi" src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.22.0/dist/tf-core.min.js"></script>
+    <script defer crossorigin="anonymous" integrity="sha384-sTQbAoegStaraHP3ijlE4F66mBcvLpX2zRxhhZqVsfVTGLsKLw6X3AMEyo18XygJ" src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.22.0/dist/tf-converter.min.js"></script>
+    <script defer crossorigin="anonymous" integrity="sha384-PAbE0QuTSZkDuS/hX4MEx1MZ0Nwd+mkb2Znz35ZqGDjb36klpR8/mCpykhdd7uHW" src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.22.0/dist/tf-backend-webgl.min.js"></script>
+    <script defer crossorigin="anonymous" integrity="sha384-pjg3ZYfXdbqsHl42YTyNHeHMzvrwQUvEuQ7tTn6+tDmoUkSD3ItK1sBa73y1l0H3" src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --frame-color: #FF9800;
+            --bg-color: #E8F5E9;
+        }
+
+        * { box-sizing: border-box; font-family: 'Sarabun', sans-serif; }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-color);
+            overflow: hidden;
+            height: 100vh;
+            height: 100dvh;
+        }
+
+        .screen {
+            position: fixed;
+            inset: 0;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: var(--bg-color);
+            padding: 20px;
+            overflow-y: auto;
+            z-index: 10;
+        }
+
+        .screen.active { display: flex; }
+
+        h1 {
+            color: #2E7D32;
+            font-size: clamp(1.8rem, 5vw, 3rem);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            border-radius: 30px;
+            cursor: pointer;
+            margin: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.2s, background 0.2s;
+            font-weight: bold;
+        }
+
+        button:hover { transform: scale(1.05); background-color: #43A047; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        .btn-secondary { background-color: #2196F3; }
+        .btn-secondary:hover { background-color: #1E88E5; }
+        .btn-danger { background-color: #f44336; }
+        .btn-danger:hover { background-color: #e53935; }
+
+        .settings-box, .leaderboard-box, .login-box {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .settings-box label {
+            display: block;
+            margin: 15px 0 5px;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .settings-box select, .settings-box input, .login-box input {
+            width: 100%;
+            padding: 12px;
+            font-size: 1.1rem;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+        }
+
+        /* หน้าเข้าสู่ระบบ */
+        .login-box { text-align: center; }
+        .login-box h2 { color: #2E7D32; margin-top: 0; }
+        #login-error {
+            color: #f44336;
+            font-weight: bold;
+            min-height: 1.6em;
+            margin-top: 12px;
+        }
+
+        /* หน้าเล่นเกม */
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+        }
+
+        #canvasElement {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #ui-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        #stats-bar {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(255,255,255,0.92);
+            padding: 10px 20px;
+            border-radius: 15px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        #question-box {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            border: 4px solid var(--frame-color);
+            padding: 10px 30px;
+            border-radius: 20px;
+            font-size: clamp(1.1rem, 3vw, 1.8rem);
+            font-weight: bold;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            color: #333;
+            white-space: nowrap;
+        }
+
+        .plus-sign { color: #E91E63; margin: 0 10px; }
+
+        .answer-box {
+            position: absolute;
+            bottom: 40px;
+            background: white;
+            border: 5px solid var(--frame-color);
+            padding: 15px 30px;
+            border-radius: 30px;
+            font-size: clamp(1.3rem, 4vw, 2.2rem);
+            font-weight: bold;
+            color: #333;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.4);
+            transition: transform 0.15s, background 0.15s;
+            overflow: hidden;
+        }
+
+        /* แถบความคืบหน้าตอน "ค้างมือ" ค้างครบถึงจะนับว่าตอบ */
+        .answer-box .fill {
+            position: absolute;
+            inset: 0;
+            background: #FFF176;
+            width: 0%;
+            transition: width 0.08s linear;
+            z-index: 0;
+        }
+        .answer-box .label { position: relative; z-index: 1; }
+
+        #ans-left { left: 4%; }
+        #ans-right { right: 4%; }
+
+        .answer-box.highlight {
+            transform: scale(1.12);
+            border-color: #FFEB3B;
+        }
+
+        #zigzag-alert {
+            position: absolute;
+            bottom: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #FF5722;
+            color: white;
+            padding: 5px 20px;
+            border-radius: 20px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            display: none;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%,100% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.05); }
+        }
+
+        #feedback-effect {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: clamp(2rem, 8vw, 5rem);
+            font-weight: bold;
+            text-shadow: 0 3px 10px rgba(0,0,0,0.5);
+            opacity: 0;
+            transition: opacity 0.3s;
+            white-space: nowrap;
+        }
+
+        /* ข้อความเตือนเวลาไม่เจอคน */
+        #hint-box {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.65);
+            color: #fff;
+            padding: 6px 18px;
+            border-radius: 20px;
+            font-size: 1rem;
+            display: none;
+        }
+
+        #loading {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            color: white;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            font-size: 1.5rem;
+            z-index: 100;
+        }
+        #loading.show { display: flex; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background-color: var(--primary-color); color: white; }
+    </style>
+</head>
+<body>
+
+    <!-- หน้าเข้าสู่ระบบ -->
+    <div id="screen-login" class="screen active">
+        <h1>🔒 เข้าสู่ระบบ</h1>
+        <div class="login-box">
+            <h2>กรอกรหัสผ่านเพื่อเริ่มเล่น</h2>
+            <input type="password" id="login-password" placeholder="รหัสผ่าน" autocomplete="current-password" inputmode="numeric">
+            <div id="login-error"></div>
+            <button id="login-btn" onclick="doLogin()">เข้าสู่ระบบ</button>
+        </div>
+    </div>
+
+    <!-- หน้าแรก -->
+    <div id="screen-home" class="screen">
+        <h1>เกม มาตราตัวสะกด "แม่กบ"</h1>
+        <button onclick="startGame()">▶ เริ่มเกม</button>
+        <button class="btn-secondary" onclick="showScreen('screen-settings')">⚙️ โหมดครู (ตั้งค่า)</button>
+        <button class="btn-secondary" onclick="showLeaderboard()">🏆 ตารางคะแนน</button>
+        <button class="btn-danger" onclick="doLogout()">ออกจากระบบ</button>
+    </div>
+
+    <!-- หน้าการตั้งค่า (โหมดครู) -->
+    <div id="screen-settings" class="screen">
+        <div class="settings-box">
+            <h2 style="text-align: center; color: #2E7D32;">⚙️ โหมดครู</h2>
+            <label>จำนวนโจทย์ที่ต้องการเล่น:</label>
+            <select id="set-questions">
+                <option value="10">10 ข้อ (สุ่มจาก 20 ข้อ)</option>
+                <option value="20" selected>20 ข้อ (ทั้งหมด)</option>
+            </select>
+
+            <label>สีกรอบคำศัพท์:</label>
+            <input type="color" id="set-color" value="#FF9800">
+
+            <label>ความไวในการตอบ (ค้างมือกี่วินาที):</label>
+            <select id="set-dwell">
+                <option value="400">เร็ว (0.4 วิ)</option>
+                <option value="700" selected>ปานกลาง (0.7 วิ)</option>
+                <option value="1100">ช้า / แม่นยำ (1.1 วิ)</option>
+            </select>
+
+            <label>จำนวนผู้เล่น:</label>
+            <select id="set-players">
+                <option value="1">เล่นเดี่ยว</option>
+            </select>
+
+            <label style="display:flex; align-items:center; cursor:pointer;">
+                <input type="checkbox" id="set-zigzag" style="width:20px; height:20px; margin-right:10px;">
+                เปิดโหมด "วิ่งซิกแซกกรวย"
+            </label>
+
+            <div style="text-align: center; margin-top: 20px;">
+                <button onclick="saveSettings()">บันทึกและกลับ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- หน้าตารางคะแนน -->
+    <div id="screen-leaderboard" class="screen">
+        <div class="leaderboard-box">
+            <h2 style="text-align: center; color: #E91E63;">🏆 Top 10 คะแนนสูงสุด</h2>
+            <div id="leaderboard-table"></div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn-secondary" onclick="showScreen('screen-home')">กลับหน้าแรก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- หน้าเกม -->
+    <div id="screen-game" class="screen" style="background:#000; padding:0;">
+        <div id="game-container">
+            <video id="videoElement" autoplay playsinline muted style="display:none;"></video>
+            <canvas id="canvasElement"></canvas>
+
+            <div id="ui-layer">
+                <div id="stats-bar">
+                    ⭐ คะแนน: <span id="score-display">0</span><br>
+                    🎯 แตะสำเร็จ: <span id="hit-count">0</span> ครั้ง<br>
+                    📋 ข้อที่ <span id="q-progress">1/20</span>
+                </div>
+
+                <div id="question-box">
+                    <span id="q-text">ข้อที่ 1</span> <span class="plus-sign">+</span> <span style="color:#2196F3;">แม่กบ</span>
+                </div>
+
+                <div id="ans-left" class="answer-box"><div class="fill"></div><span class="label">คำตอบซ้าย</span></div>
+                <div id="ans-right" class="answer-box"><div class="fill"></div><span class="label">คำตอบขวา</span></div>
+
+                <div id="zigzag-alert">🏃‍♂️ วิ่งซิกแซกผ่านกรวยก่อนแตะคำตอบ!</div>
+                <div id="feedback-effect">✔️</div>
+                <div id="hint-box">ถอยห่างจากกล้องให้เห็นแขนทั้งสองข้าง</div>
+            </div>
+        </div>
+        <button class="btn-danger" style="position:absolute; top:10px; right:10px; z-index:20; padding:10px 20px; font-size:1rem;" onclick="endGame()">หยุดเกม</button>
+    </div>
+
+    <!-- หน้าสรุปผล -->
+    <div id="screen-gameover" class="screen">
+        <h1 id="final-title">จบเกม!</h1>
+        <h2 style="font-size: 2rem; color: #FF9800;">คะแนนของคุณ: <span id="final-score">0</span></h2>
+
+        <div style="margin: 20px 0; display:flex; flex-direction:column; align-items:center;">
+            <label style="font-size:1.2rem; font-weight:bold; margin-bottom:10px;">บันทึกชื่อของคุณ:</label>
+            <input type="text" id="player-name" placeholder="ชื่อผู้เล่น" maxlength="20" style="padding:10px; font-size:1.2rem; border-radius:10px; border:2px solid #ccc; text-align:center;">
+        </div>
+
+        <div>
+            <button onclick="saveScore()">บันทึกคะแนน</button>
+            <button onclick="startGame()">🔄 เล่นอีกครั้ง</button>
+            <button class="btn-secondary" onclick="showScreen('screen-home')">หน้าแรก</button>
+        </div>
+    </div>
+
+    <div id="loading">กำลังเปิดกล้องและโหลด AI... กรุณารอสักครู่</div>
+
+<script>
+    'use strict';
+
+    /* =========================================
+       ระบบเข้าสู่ระบบ (รหัสผ่านชั้นเดียว)
+       หมายเหตุ: เก็บเป็น SHA-256 ไม่ได้เก็บรหัสตรง ๆ ในไฟล์
+       แต่เป็นการตรวจฝั่งเบราว์เซอร์ จึงกันได้แค่ระดับ "ไม่ให้คนทั่วไปเข้าเล่น"
+    ========================================= */
+    const PASSWORD_HASH = '1718c24b10aeb8099e3fc44960ab6949ab76a267352459f203ea1036bec382c2';
+    const AUTH_KEY = 'maekob_auth';
+
+    async function sha256(text) {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+        return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    async function doLogin() {
+        const input = document.getElementById('login-password');
+        const errorEl = document.getElementById('login-error');
+        const btn = document.getElementById('login-btn');
+        const value = input.value.trim();
+
+        if (!value) { errorEl.innerText = 'กรุณากรอกรหัสผ่าน'; return; }
+
+        btn.disabled = true;
+        try {
+            const hash = await sha256(value);
+            if (hash === PASSWORD_HASH) {
+                sessionStorage.setItem(AUTH_KEY, hash);
+                errorEl.innerText = '';
+                input.value = '';
+                showScreen('screen-home');
+            } else {
+                errorEl.innerText = '❌ รหัสผ่านไม่ถูกต้อง';
+                input.value = '';
+                input.focus();
+            }
+        } catch (e) {
+            // crypto.subtle ใช้ได้เฉพาะ https หรือ localhost
+            errorEl.innerText = 'ตรวจรหัสผ่านไม่ได้ (ต้องเปิดผ่าน https หรือ localhost)';
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function doLogout() {
+        sessionStorage.removeItem(AUTH_KEY);
+        stopEverything();
+        showScreen('screen-login');
+    }
+
+    function isLoggedIn() {
+        return sessionStorage.getItem(AUTH_KEY) === PASSWORD_HASH;
+    }
+
+    /* =========================================
+       ฐานข้อมูลโจทย์
+    ========================================= */
+    const rawQuestions = [
+        { q: "๑ พยางค์", left: "กบ", right: "นก", ans: "กบ" },
+        { q: "๑ พยางค์", left: "ลม", right: "รูป", ans: "รูป" },
+        { q: "๑ พยางค์", left: "ภาพ", right: "ดาว", ans: "ภาพ" },
+        { q: "๑ พยางค์", left: "บ้าน", right: "ตอบ", ans: "ตอบ" },
+        { q: "๑ พยางค์", left: "กราบ", right: "กิน", ans: "กราบ" },
+        { q: "๑ พยางค์", left: "เล็บ", right: "ลม", ans: "เล็บ" },
+        { q: "๑ พยางค์", left: "ปาก", right: "รูป", ans: "รูป" },
+        { q: "๑ พยางค์", left: "ภพ", right: "แมว", ans: "ภพ" },
+        { q: "๑ พยางค์", left: "ชอบ", right: "นอน", ans: "ชอบ" },
+        { q: "๑ พยางค์", left: "จับ", right: "ดิน", ans: "จับ" },
+        { q: "๒ พยางค์", left: "รูปภาพ", right: "มะม่วง", ans: "รูปภาพ" },
+        { q: "๒ พยางค์", left: "คำตอบ", right: "อาหาร", ans: "คำตอบ" },
+        { q: "๒ พยางค์", left: "โทรศัพท์", right: "โรงเรียน", ans: "โทรศัพท์" },
+        { q: "๒ พยางค์", left: "เคารพ", right: "มะนาว", ans: "เคารพ" },
+        { q: "๒ พยางค์", left: "ประทับ", right: "กระดาษ", ans: "ประทับ" },
+        { q: "๒ พยางค์", left: "สัปดาห์", right: "นาฬิกา", ans: "สัปดาห์" },
+        { q: "๒ พยางค์", left: "ต้นไม้", right: "สกปรก", ans: "สกปรก" },
+        { q: "๒ พยางค์", left: "หนังสือ", right: "คำศัพท์", ans: "คำศัพท์" },
+        { q: "๒ พยางค์", left: "สุภาพ", right: "น้ำปลา", ans: "สุภาพ" },
+        { q: "๒ พยางค์", left: "อพยพ", right: "แม่น้ำ", ans: "อพยพ" }
+    ];
+
+    /* =========================================
+       ตัวแปรระบบ
+    ========================================= */
+    let detector = null;
+    let video, canvas, ctx;
+    let stream = null;
+    let isPlaying = false;
+    let loopId = null;          // id ของ requestAnimationFrame (กัน loop ซ้อน)
+    let isDetecting = false;    // กันเรียก estimatePoses ซ้อนกัน
+    let lastDetectTime = 0;
+    let score = 0, hitCount = 0, currentQuestionIndex = 0;
+    let questionsList = [];
+    let isWaitingNext = false;
+    let starting = false;       // กันกดเริ่มเกมรัว ๆ
+
+    // สถานะ "ค้างมือ" ของแต่ละกล่อง
+    const dwell = { left: 0, right: 0 };
+    let lastFrameTime = 0;
+    let lastPoseTime = 0;       // เวลาที่เจอคนล่าสุด
+    let smoothed = {};          // ค่าเฉลี่ยเคลื่อนที่ของ keypoint (ลดอาการสั่น)
+
+    let config = {
+        totalQ: 20,
+        frameColor: '#FF9800',
+        zigzag: false,
+        dwellMs: 700
+    };
+
+    const DETECT_INTERVAL = 33;   // ตรวจจับสูงสุด ~30 ครั้ง/วินาที
+    const MIN_SCORE = 0.35;       // ความมั่นใจขั้นต่ำของจุดข้อมือ
+    const SMOOTH = 0.55;          // น้ำหนักค่าเก่าใน EMA
+
+    /* =========================================
+       เสียง (สร้าง AudioContext ตอนผู้ใช้กดครั้งแรกเท่านั้น)
+    ========================================= */
+    let audioCtx = null;
+
+    function ensureAudio() {
+        try {
+            if (!audioCtx) {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (AC) audioCtx = new AC();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        } catch (e) { /* ไม่มีเสียงก็ยังเล่นเกมได้ */ }
+    }
+
+    function playSound(type) {
+        ensureAudio();
+        if (!audioCtx) return;
+        try {
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            const t = audioCtx.currentTime;
+
+            if (type === 'correct') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, t);
+                osc.frequency.exponentialRampToValueAtTime(1200, t + 0.1);
+                gainNode.gain.setValueAtTime(0.5, t);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
+                osc.start(t); osc.stop(t + 0.4);
+            } else if (type === 'wrong') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, t);
+                osc.frequency.exponentialRampToValueAtTime(150, t + 0.2);
+                gainNode.gain.setValueAtTime(0.4, t);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+                osc.start(t); osc.stop(t + 0.3);
+            } else if (type === 'bonus') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(400, t);
+                osc.frequency.exponentialRampToValueAtTime(800, t + 0.1);
+                osc.frequency.exponentialRampToValueAtTime(1600, t + 0.2);
+                gainNode.gain.setValueAtTime(0.35, t);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
+                osc.start(t); osc.stop(t + 0.5);
+            }
+        } catch (e) { /* ข้ามไป */ }
+    }
+
+    /* =========================================
+       ระบบ UI
+    ========================================= */
+    function showScreen(id) {
+        // กันเข้าหน้าอื่นถ้ายังไม่ได้ล็อกอิน
+        if (id !== 'screen-login' && !isLoggedIn()) id = 'screen-login';
+
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+
+        if (id !== 'screen-game') stopEverything();
+        if (id === 'screen-login') {
+            const el = document.getElementById('login-password');
+            setTimeout(() => el.focus(), 50);
+        }
+    }
+
+    function saveSettings() {
+        config.totalQ = parseInt(document.getElementById('set-questions').value, 10);
+        config.frameColor = document.getElementById('set-color').value;
+        config.zigzag = document.getElementById('set-zigzag').checked;
+        config.dwellMs = parseInt(document.getElementById('set-dwell').value, 10);
+
+        document.documentElement.style.setProperty('--frame-color', config.frameColor);
+        try { localStorage.setItem('maekob_cfg', JSON.stringify(config)); } catch (e) {}
+        showScreen('screen-home');
+    }
+
+    function loadSettings() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('maekob_cfg'));
+            if (saved) config = Object.assign(config, saved);
+        } catch (e) {}
+        document.getElementById('set-questions').value = String(config.totalQ);
+        document.getElementById('set-color').value = config.frameColor;
+        document.getElementById('set-zigzag').checked = !!config.zigzag;
+        document.getElementById('set-dwell').value = String(config.dwellMs);
+        document.documentElement.style.setProperty('--frame-color', config.frameColor);
+    }
+
+    function readLeaderboard() {
+        try {
+            const lb = JSON.parse(localStorage.getItem('maekob_lb'));
+            return Array.isArray(lb) ? lb : [];
+        } catch (e) { return []; }
+    }
+
+    function showLeaderboard() {
+        const lb = readLeaderboard().sort((a, b) => b.score - a.score).slice(0, 10);
+        const table = document.createElement('table');
+        const head = table.insertRow();
+        ['อันดับ', 'ชื่อผู้เล่น', 'คะแนน', 'วันที่'].forEach(t => {
+            const th = document.createElement('th');
+            th.textContent = t;
+            head.appendChild(th);
+        });
+
+        if (lb.length === 0) {
+            const cell = table.insertRow().insertCell();
+            cell.colSpan = 4;
+            cell.textContent = 'ยังไม่มีข้อมูล';
+        } else {
+            lb.forEach((entry, i) => {
+                const row = table.insertRow();
+                // ใช้ textContent เพื่อไม่ให้ชื่อผู้เล่นถูกตีความเป็น HTML
+                [i + 1, entry.name, entry.score, entry.date].forEach(v => {
+                    row.insertCell().textContent = v;
+                });
+            });
+        }
+
+        const holder = document.getElementById('leaderboard-table');
+        holder.textContent = '';
+        holder.appendChild(table);
+        showScreen('screen-leaderboard');
+    }
+
+    function saveScore() {
+        const name = (document.getElementById('player-name').value || '').trim() || 'นักเรียนนิรนาม';
+        const lb = readLeaderboard();
+        lb.push({ name: name.slice(0, 20), score: score, date: new Date().toLocaleDateString('th-TH') });
+        try {
+            localStorage.setItem('maekob_lb', JSON.stringify(lb.sort((a, b) => b.score - a.score).slice(0, 50)));
+        } catch (e) {}
+        document.getElementById('player-name').value = '';
+        showLeaderboard();
+    }
+
+    /* =========================================
+       กล้อง + AI
+    ========================================= */
+    function setLoading(text) {
+        const el = document.getElementById('loading');
+        if (text === null) { el.classList.remove('show'); return; }
+        el.textContent = text;
+        el.classList.add('show');
+    }
+
+    async function waitForLibs(timeoutMs = 20000) {
+        const start = Date.now();
+        while (typeof poseDetection === 'undefined' || typeof tf === 'undefined') {
+            if (Date.now() - start > timeoutMs) throw new Error('โหลดไลบรารี AI ไม่สำเร็จ (เช็คอินเทอร์เน็ต)');
+            await new Promise(r => setTimeout(r, 100));
+        }
+    }
+
+    async function initAI() {
+        setLoading('กำลังโหลด AI...');
+        await waitForLibs();
+        await tf.setBackend('webgl');
+        await tf.ready();
+
+        if (!detector) {
+            detector = await poseDetection.createDetector(
+                poseDetection.SupportedModels.MoveNet,
+                { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
+            );
+        }
+    }
+
+    async function initCamera() {
+        setLoading('กำลังเปิดกล้อง...');
+        video = document.getElementById('videoElement');
+
+        // ถ้ากล้องเดิมยังใช้ได้อยู่ ไม่ต้องเปิดใหม่
+        if (stream && stream.getVideoTracks().some(t => t.readyState === 'live')) {
+            if (video.paused) await video.play().catch(() => {});
+            return;
+        }
+
+        stopStream();
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+            audio: false
+        });
+        video.srcObject = stream;
+
+        // รอจนวิดีโอมีขนาดจริงและเล่นแล้ว (ไม่งั้น detect ได้ค่าว่าง)
+        await new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('กล้องไม่ตอบสนอง')), 15000);
+            const check = () => {
+                if (video.readyState >= 2 && video.videoWidth > 0) {
+                    clearTimeout(timer);
+                    resolve();
+                }
+            };
+            video.onloadeddata = check;
+            video.onloadedmetadata = check;
+            check();
+        });
+        await video.play().catch(() => {});
+    }
+
+    function stopStream() {
+        if (stream) {
+            stream.getTracks().forEach(t => t.stop());
+            stream = null;
+        }
+        if (video) video.srcObject = null;
+    }
+
+    function stopEverything() {
+        isPlaying = false;
+        if (loopId !== null) { cancelAnimationFrame(loopId); loopId = null; }
+        stopStream();
+        setLoading(null);
+    }
+
+    /* =========================================
+       ขนาด canvas (ปรับตามหน้าจอจริง + DPR)
+    ========================================= */
+    function resizeCanvas() {
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const w = Math.round(rect.width * dpr);
+        const h = Math.round(rect.height * dpr);
+        if (canvas.width !== w || canvas.height !== h) {
+            canvas.width = w;
+            canvas.height = h;
+        }
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 300));
+
+    // แปลงพิกัดจากภาพกล้อง -> พิกัดหน้าจอ (CSS px) โดยคิดเอฟเฟกต์ crop แบบ cover + กระจกเงา
+    function videoToScreen(x, y) {
+        const rect = canvas.getBoundingClientRect();
+        const vw = video.videoWidth, vh = video.videoHeight;
+        if (!vw || !vh) return null;
+        const scale = Math.max(rect.width / vw, rect.height / vh);
+        const dw = vw * scale, dh = vh * scale;
+        const dx = (rect.width - dw) / 2;
+        const dy = (rect.height - dh) / 2;
+        return {
+            x: rect.left + rect.width - (dx + x * scale), // กลับซ้าย-ขวาให้เหมือนส่องกระจก
+            y: rect.top + dy + y * scale
+        };
+    }
+
+    /* =========================================
+       เกมเพลย์
+    ========================================= */
+    async function startGame() {
+        if (starting) return;
+        starting = true;
+        ensureAudio();
+
+        try {
+            showScreen('screen-game');
+            canvas = document.getElementById('canvasElement');
+            ctx = canvas.getContext('2d');
+            resizeCanvas();
+
+            await initAI();
+            await initCamera();
+            resizeCanvas();
+            setLoading(null);
+        } catch (e) {
+            setLoading(null);
+            stopEverything();
+            alert('เริ่มเกมไม่สำเร็จ: ' + (e && e.message ? e.message : e) +
+                  '\n\nกรุณาอนุญาตให้ใช้กล้อง และเปิดหน้านี้ผ่าน https หรือ localhost');
+            showScreen('screen-home');
+            starting = false;
+            return;
+        }
+
+        // เตรียมชุดโจทย์ (สลับลำดับเสมอ เพื่อไม่ให้เดาลำดับได้)
+        questionsList = shuffle([...rawQuestions]);
+        if (config.totalQ === 10) questionsList = questionsList.slice(0, 10);
+
+        questionsList.push({
+            q: "BONUS ROUND",
+            left: "ซุปเปอร์แมน",
+            right: "สไปเดอร์แมน",
+            ans: "ซุปเปอร์แมน",
+            isBonus: true
+        });
+
+        score = 0;
+        hitCount = 0;
+        currentQuestionIndex = 0;
+        isWaitingNext = false;
+        dwell.left = dwell.right = 0;
+        smoothed = {};
+        lastPoseTime = performance.now();
+        lastFrameTime = 0;
+
+        updateStats();
+        document.getElementById('zigzag-alert').style.display = config.zigzag ? 'block' : 'none';
+        document.getElementById('feedback-effect').style.opacity = 0;
+
+        loadQuestion();
+
+        isPlaying = true;
+        starting = false;
+        if (loopId !== null) cancelAnimationFrame(loopId);
+        loopId = requestAnimationFrame(gameLoop);
+    }
+
+    function shuffle(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    function setAnswerText(box, text) {
+        box.querySelector('.label').textContent = text;
+    }
+
+    function loadQuestion() {
+        if (currentQuestionIndex >= questionsList.length) { endGame(); return; }
+
+        const q = questionsList[currentQuestionIndex];
+        const qBox = document.getElementById('question-box');
+        const leftBox = document.getElementById('ans-left');
+        const rightBox = document.getElementById('ans-right');
+
+        if (q.isBonus) {
+            qBox.textContent = 'BONUS ROUND! (+50 คะแนน)';
+            qBox.style.color = '#FF5722';
+            leftBox.style.borderColor = '#E91E63';
+            rightBox.style.borderColor = '#E91E63';
+        } else {
+            qBox.style.color = '#333';
+            qBox.innerHTML = '';
+            const part1 = document.createElement('span');
+            part1.textContent = q.q;
+            const plus = document.createElement('span');
+            plus.className = 'plus-sign';
+            plus.textContent = '+';
+            const part2 = document.createElement('span');
+            part2.style.color = '#2196F3';
+            part2.textContent = 'แม่กบ';
+            qBox.append(part1, plus, part2);
+            leftBox.style.borderColor = config.frameColor;
+            rightBox.style.borderColor = config.frameColor;
+        }
+
+        const wrong = (q.ans === q.left) ? q.right : q.left;
+        const isLeftCorrect = Math.random() > 0.5;
+        setAnswerText(leftBox, isLeftCorrect ? q.ans : wrong);
+        setAnswerText(rightBox, isLeftCorrect ? wrong : q.ans);
+        leftBox.dataset.correct = String(isLeftCorrect);
+        rightBox.dataset.correct = String(!isLeftCorrect);
+
+        resetDwell();
+        updateStats();
+    }
+
+    function resetDwell() {
+        dwell.left = dwell.right = 0;
+        document.querySelectorAll('.answer-box .fill').forEach(f => f.style.width = '0%');
+    }
+
+    function updateStats() {
+        document.getElementById('score-display').textContent = score;
+        document.getElementById('hit-count').textContent = hitCount;
+        const total = questionsList.length || config.totalQ;
+        document.getElementById('q-progress').textContent =
+            Math.min(currentQuestionIndex + 1, total) + '/' + total;
+    }
+
+    async function gameLoop(now) {
+        if (!isPlaying) return;
+        loopId = requestAnimationFrame(gameLoop);
+
+        const dt = lastFrameTime ? Math.min(now - lastFrameTime, 100) : 16;
+        lastFrameTime = now;
+
+        resizeCanvas();
+        drawVideoFrame();
+
+        // ตรวจจับท่าทางแบบจำกัดรอบ และไม่ให้ทับซ้อนกัน (เป็นสาเหตุหลักของอาการกระตุก)
+        if (!isDetecting && detector && video && video.readyState >= 2 &&
+            now - lastDetectTime >= DETECT_INTERVAL) {
+            isDetecting = true;
+            lastDetectTime = now;
+            detector.estimatePoses(video, { maxPoses: 1, flipHorizontal: false })
+                .then(poses => { handlePoses(poses, now); })
+                .catch(() => { /* ข้ามเฟรมที่ตรวจไม่ได้ */ })
+                .finally(() => { isDetecting = false; });
+        }
+
+        updateDwell(dt, now);
+    }
+
+    function drawVideoFrame() {
+        if (!ctx || !canvas) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (!video || !video.videoWidth) return;
+
+        const cw = canvas.width, ch = canvas.height;
+        const vw = video.videoWidth, vh = video.videoHeight;
+        const scale = Math.max(cw / vw, ch / vh);
+        const dw = vw * scale, dh = vh * scale;
+        const dx = (cw - dw) / 2, dy = (ch - dh) / 2;
+
+        ctx.save();
+        ctx.translate(cw, 0);
+        ctx.scale(-1, 1);   // กระจกเงา
+        ctx.drawImage(video, cw - dx - dw, dy, dw, dh);
+        ctx.restore();
+    }
+
+    let activeHands = [];   // ตำแหน่งมือ (พิกัดหน้าจอ) ของเฟรมล่าสุด
+
+    function handlePoses(poses, now) {
+        const hands = [];
+        if (poses && poses.length > 0) {
+            lastPoseTime = now;
+            const kp = poses[0].keypoints;
+            [9, 10].forEach(idx => {
+                const p = kp[idx];
+                if (!p || p.score < MIN_SCORE) { delete smoothed[idx]; return; }
+                // ทำให้จุดนิ่งขึ้นด้วยค่าเฉลี่ยเคลื่อนที่ ลดอาการจุดกระโดดไปมา
+                const prev = smoothed[idx];
+                const sx = prev ? prev.x * SMOOTH + p.x * (1 - SMOOTH) : p.x;
+                const sy = prev ? prev.y * SMOOTH + p.y * (1 - SMOOTH) : p.y;
+                smoothed[idx] = { x: sx, y: sy };
+                const screen = videoToScreen(sx, sy);
+                if (screen) hands.push(screen);
+            });
+        }
+        activeHands = hands;
+
+        // แจ้งเตือนเมื่อกล้องหาคนไม่เจอเกิน 2 วินาที
+        document.getElementById('hint-box').style.display =
+            (now - lastPoseTime > 2000) ? 'block' : 'none';
+    }
+
+    function drawHand(screenPos) {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = canvas.width / rect.width;
+        const x = (screenPos.x - rect.left) * dpr;
+        const y = (screenPos.y - rect.top) * dpr;
+        ctx.beginPath();
+        ctx.arc(x, y, 15 * dpr, 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(76, 175, 80, 0.7)';
+        ctx.fill();
+        ctx.lineWidth = 3 * dpr;
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.stroke();
+    }
+
+    function updateDwell(dt, now) {
+        activeHands.forEach(drawHand);
+
+        if (isWaitingNext || activeHands.length === 0) {
+            if (isWaitingNext) return;
+            decay(dt);
+            return;
+        }
+
+        const leftBox = document.getElementById('ans-left');
+        const rightBox = document.getElementById('ans-right');
+        const leftRect = leftBox.getBoundingClientRect();
+        const rightRect = rightBox.getBoundingClientRect();
+
+        const onLeft = activeHands.some(h => isInside(h.x, h.y, leftRect));
+        const onRight = activeHands.some(h => isInside(h.x, h.y, rightRect));
+
+        // ถ้ามือคร่อมทั้งสองกล่องพร้อมกัน ถือว่ายังไม่ตัดสินใจ
+        if (onLeft && onRight) { decay(dt); return; }
+
+        dwell.left = onLeft ? dwell.left + dt : Math.max(0, dwell.left - dt * 2);
+        dwell.right = onRight ? dwell.right + dt : Math.max(0, dwell.right - dt * 2);
+
+        paintDwell(leftBox, dwell.left);
+        paintDwell(rightBox, dwell.right);
+
+        if (dwell.left >= config.dwellMs) handleAnswer(leftBox);
+        else if (dwell.right >= config.dwellMs) handleAnswer(rightBox);
+    }
+
+    function decay(dt) {
+        dwell.left = Math.max(0, dwell.left - dt * 2);
+        dwell.right = Math.max(0, dwell.right - dt * 2);
+        paintDwell(document.getElementById('ans-left'), dwell.left);
+        paintDwell(document.getElementById('ans-right'), dwell.right);
+    }
+
+    function paintDwell(box, value) {
+        const pct = Math.min(100, (value / config.dwellMs) * 100);
+        box.querySelector('.fill').style.width = pct + '%';
+        box.classList.toggle('highlight', pct > 5);
+    }
+
+    function isInside(x, y, rect) {
+        const padding = 15;
+        return (x >= rect.left - padding && x <= rect.right + padding &&
+                y >= rect.top - padding && y <= rect.bottom + padding);
+    }
+
+    function handleAnswer(element) {
+        if (isWaitingNext) return;
+        isWaitingNext = true;
+        resetDwell();
+
+        const isCorrect = element.dataset.correct === 'true';
+        const isBonus = !!questionsList[currentQuestionIndex].isBonus;
+        const feedback = document.getElementById('feedback-effect');
+
+        element.classList.add('highlight');
+        element.querySelector('.fill').style.width = '100%';
+
+        if (isCorrect) {
+            score += isBonus ? 50 : 10;
+            playSound(isBonus ? 'bonus' : 'correct');
+            feedback.textContent = isBonus ? '⭐ ยอดเยี่ยม! +50' : '✔️ ถูกต้อง! +10';
+            feedback.style.color = isBonus ? '#FF9800' : '#4CAF50';
+            hitCount++;
+        } else {
+            score = Math.max(0, score - 5);   // ไม่ให้คะแนนติดลบ เด็กจะได้ไม่ท้อ
+            playSound('wrong');
+            feedback.textContent = '❌ ผิด! -5';
+            feedback.style.color = '#F44336';
+        }
+
+        updateStats();
+        feedback.style.opacity = 1;
+
+        setTimeout(() => {
+            feedback.style.opacity = 0;
+            element.classList.remove('highlight');
+            currentQuestionIndex++;
+            if (isPlaying) loadQuestion();
+            isWaitingNext = false;
+        }, 1500);
+    }
+
+    function endGame() {
+        const finished = currentQuestionIndex >= questionsList.length && questionsList.length > 0;
+        stopEverything();
+        document.getElementById('final-score').textContent = score;
+        document.getElementById('final-title').textContent =
+            finished ? '🎉 ยินดีด้วย จบเกมแล้ว! 🎉' : '🛑 หยุดเกม 🛑';
+        showScreen('screen-gameover');
+    }
+
+    /* =========================================
+       เหตุการณ์ทั่วไป
+    ========================================= */
+    // สลับแท็บ/ล็อกหน้าจอแล้วกลับมา: rAF จะหยุดไปเอง ต้องต่อ loop ใหม่ให้เกมไปต่อได้
+    document.addEventListener('visibilitychange', () => {
+        if (!isPlaying) return;
+        if (document.hidden) {
+            if (loopId !== null) { cancelAnimationFrame(loopId); loopId = null; }
+        } else {
+            lastFrameTime = 0;
+            resetDwell();
+            if (loopId === null) loopId = requestAnimationFrame(gameLoop);
+            if (video && video.paused) video.play().catch(() => {});
+        }
+    });
+
+    window.addEventListener('pagehide', stopEverything);
+
+    document.getElementById('login-password').addEventListener('keydown', e => {
+        if (e.key === 'Enter') doLogin();
+    });
+
+    loadSettings();
+    showScreen(isLoggedIn() ? 'screen-home' : 'screen-login');
+</script>
+</body>
+</html>
