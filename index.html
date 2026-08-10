@@ -2,520 +2,342 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="เกมแม่กก">
-    <meta name="theme-color" content="#E8F5E9">
-    <title>เกม AI มาตราตัวสะกด แม่กก</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เกม AI มาตราตัวสะกด แม่กก (แตะคำตอบ)</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐔</text></svg>">
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
-
-    <!-- TensorFlow.js + MoveNet (ตรึงเวอร์ชันไว้ เพื่อไม่ให้ CDN อัปเดตแล้วเกมพัง) -->
-    <script defer crossorigin="anonymous" integrity="sha384-ZVckeGw84RpbmPMzx1s9LFUqIaeIsG46rmlH/HynDuJikkmGLnTDnEmT0CrKI6Yi" src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.22.0/dist/tf-core.min.js"></script>
-    <script defer crossorigin="anonymous" integrity="sha384-sTQbAoegStaraHP3ijlE4F66mBcvLpX2zRxhhZqVsfVTGLsKLw6X3AMEyo18XygJ" src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.22.0/dist/tf-converter.min.js"></script>
-    <script defer crossorigin="anonymous" integrity="sha384-PAbE0QuTSZkDuS/hX4MEx1MZ0Nwd+mkb2Znz35ZqGDjb36klpR8/mCpykhdd7uHW" src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.22.0/dist/tf-backend-webgl.min.js"></script>
-    <script defer crossorigin="anonymous" integrity="sha384-pjg3ZYfXdbqsHl42YTyNHeHMzvrwQUvEuQ7tTn6+tDmoUkSD3ItK1sBa73y1l0H3" src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
+    
+    <!-- นำเข้าฟอนต์ภาษาไทยที่มีหัว อ่านง่ายสำหรับเด็ก -->
+    <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- นำเข้า MediaPipe Pose -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
 
     <style>
         :root {
-            --primary-color: #4CAF50;
-            --frame-color: #FF9800;
-            --bg-color: #E8F5E9;
-            /* ระยะปลอดภัยของจอมีรอยบาก/ขอบมน (iPad, มือถือ) */
-            --safe-t: env(safe-area-inset-top, 0px);
-            --safe-b: env(safe-area-inset-bottom, 0px);
-            --safe-l: env(safe-area-inset-left, 0px);
-            --safe-r: env(safe-area-inset-right, 0px);
+            --primary-color: #ff6b6b;
+            --secondary-color: #4ecdc4;
+            --box-color-1: #ff9ff3;
+            --box-color-2: #54a0ff;
+            --font-main: 'Mali', cursive;
         }
 
-        * { box-sizing: border-box; font-family: 'Sarabun', sans-serif; }
-
-        html, body {
+        body, html {
             margin: 0;
-            background-color: var(--bg-color);
-            overflow: hidden;
+            padding: 0;
+            width: 100%;
             height: 100%;
-            /* แท็บเล็ต: กันซูมสองนิ้ว/แตะสองที, กันหน้าเด้ง, กันลากเลือกข้อความตอนเล่น */
-            touch-action: manipulation;
-            overscroll-behavior: none;
-            -webkit-user-select: none;
+            font-family: var(--font-main);
+            overflow: hidden;
+            background: radial-gradient(circle, #fbc531, #e1b12c);
             user-select: none;
-            -webkit-touch-callout: none;
-            -webkit-tap-highlight-color: transparent;
         }
 
-        body {
-            height: 100vh;
-            height: 100dvh;
-        }
-
-        /* ให้พิมพ์ชื่อ/รหัสผ่านได้ปกติ */
-        input { -webkit-user-select: text; user-select: text; }
-
+        /* --- Screens --- */
         .screen {
-            position: fixed;
-            inset: 0;
-            display: none;
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background-color: var(--bg-color);
-            padding: calc(20px + var(--safe-t)) calc(20px + var(--safe-r)) calc(20px + var(--safe-b)) calc(20px + var(--safe-l));
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
             z-index: 10;
+            background: rgba(255, 255, 255, 0.9);
+            transition: opacity 0.5s;
         }
-
-        .screen.active { display: flex; }
+        .hidden { display: none !important; }
 
         h1 {
-            color: #2E7D32;
-            font-size: clamp(1.8rem, 5vw, 3rem);
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            font-size: 5vw;
+            color: #ff4757;
+            text-shadow: 2px 2px 0px #fff, 4px 4px 0px #dfe4ea;
+            margin-bottom: 20px;
             text-align: center;
-            margin-bottom: 30px;
         }
 
-        button {
-            background-color: var(--primary-color);
+        .btn {
+            padding: 15px 40px;
+            font-size: 2.5vw;
+            font-family: var(--font-main);
+            font-weight: bold;
             color: white;
+            background: var(--primary-color);
             border: none;
-            padding: 16px 40px;
-            font-size: clamp(1.1rem, 2.4vw, 1.5rem);
-            min-height: 60px;      /* พื้นที่แตะขั้นต่ำสำหรับนิ้ว */
-            min-width: 200px;
-            border-radius: 30px;
+            border-radius: 50px;
             cursor: pointer;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
             margin: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: transform 0.15s, background 0.2s, filter 0.15s;
-            font-weight: bold;
-            touch-action: manipulation;
         }
+        .btn:active { transform: scale(0.95); }
+        .btn-teacher { background: #3742fa; }
 
-        /* เอฟเฟกต์ hover เฉพาะเครื่องที่มีเมาส์ บนจอสัมผัสมันจะค้างหลังแตะ */
-        @media (hover: hover) {
-            button:hover { transform: scale(1.05); background-color: #43A047; }
-            .btn-secondary:hover { background-color: #1E88E5; }
-            .btn-danger:hover { background-color: #e53935; }
-        }
-
-        button:active { transform: scale(0.97); filter: brightness(0.92); }
-        button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-
-        .btn-secondary { background-color: #2196F3; }
-        .btn-danger { background-color: #f44336; }
-
-        .settings-box, .leaderboard-box, .login-box {
-            background: white;
-            padding: 30px;
-            border-radius: 20px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 500px;
-        }
-
-        .settings-box label {
-            display: block;
-            margin: 15px 0 5px;
-            font-size: 1.2rem;
-            font-weight: 600;
-        }
-
-        .settings-box select, .settings-box input, .login-box input {
-            width: 100%;
-            padding: 12px;
-            font-size: 1.1rem;
-            border-radius: 10px;
-            border: 1px solid #ccc;
-        }
-
-        /* หน้าเข้าสู่ระบบ */
-        .login-box { text-align: center; }
-        .login-box h2 { color: #2E7D32; margin-top: 0; }
-        #login-error {
-            color: #f44336;
-            font-weight: bold;
-            min-height: 1.6em;
-            margin-top: 12px;
-        }
-
-        /* หน้าเล่นเกม */
+        /* --- Game Container --- */
         #game-container {
             position: relative;
-            width: 100%;
-            height: 100%;
+            width: 100%; height: 100%;
             background: #000;
-            overflow: hidden;
         }
-
-        #canvasElement {
+        
+        video, canvas {
             position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            display: block;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
         }
+        /* กลับซ้ายขวาเฉพาะภาพวิดีโอให้เหมือนส่องกระจก
+           ห้ามกลับ canvas ด้วย เพราะ getScreenCoords() กลับแกน X ให้แล้ว
+           ถ้ากลับซ้ำจุดจะไปโผล่คนละฝั่งกับมือจริง */
+        video { transform: scaleX(-1); }
+        canvas { z-index: 2; pointer-events: none; }
 
-        #ui-layer {
+        /* --- UI Elements during game --- */
+        #game-ui {
             position: absolute;
-            inset: 0;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             z-index: 3;
             pointer-events: none;
         }
 
-        #stats-bar {
-            position: absolute;
-            top: calc(15px + var(--safe-t));
-            left: calc(15px + var(--safe-l));
-            background: rgba(255,255,255,0.92);
-            padding: 10px 20px;
-            border-radius: 15px;
-            font-size: 1.1rem;
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            padding: 20px;
+            font-size: 2.5vw;
             font-weight: bold;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
         }
 
+        .score-board {
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 20px;
+            border: 3px solid #fff;
+        }
+
+        /* Question Box (Top Center) */
         #question-box {
             position: absolute;
-            top: calc(20px + var(--safe-t));
-            left: 50%;
+            top: 5%; left: 50%;
             transform: translateX(-50%);
-            background: white;
-            border: 4px solid var(--frame-color);
-            padding: 10px 24px;
-            border-radius: 20px;
-            font-size: clamp(1.1rem, 3.2vw, 1.9rem);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 40px;
+            border-radius: 30px;
+            border: 5px solid #ff4757;
+            font-size: 4vw;
             font-weight: bold;
+            color: #2f3542;
             text-align: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            color: #333;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
             white-space: nowrap;
-            /* กันชนกับกล่องคะแนนและปุ่มหยุดเกมบนจอ 4:3 */
-            max-width: calc(100% - 380px);
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
+        .plus-sign { color: #ff4757; margin: 0 15px; }
 
-        .plus-sign { color: #E91E63; margin: 0 10px; }
-
+        /* Answer Boxes (Bottom Left/Right) */
         .answer-box {
             position: absolute;
-            bottom: calc(40px + var(--safe-b));
-            background: white;
-            border: 5px solid var(--frame-color);
-            padding: 18px 28px;
-            border-radius: 30px;
-            font-size: clamp(1.3rem, 4vw, 2.2rem);
+            bottom: 15%;
+            width: 25vw;
+            height: 15vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 5vw;
             font-weight: bold;
-            color: #333;
-            box-shadow: 0 6px 15px rgba(0,0,0,0.4);
-            transition: transform 0.15s, background 0.15s;
-            overflow: hidden;
-            /* เป้าใหญ่พอให้เด็กเล็งถูกจากระยะไกล และไม่กว้างจนชนกลางจอ */
-            min-width: min(30vw, 260px);
-            max-width: 38vw;
-            text-align: center;
-        }
-
-        /* แถบความคืบหน้าตอน "ค้างมือ" ค้างครบถึงจะนับว่าตอบ */
-        .answer-box .fill {
-            position: absolute;
-            inset: 0;
-            background: #FFF176;
-            width: 0%;
-            transition: width 0.08s linear;
-            z-index: 0;
-        }
-        .answer-box .label { position: relative; z-index: 1; }
-
-        #ans-left { left: 4%; }
-        #ans-right { right: 4%; }
-
-        .answer-box.highlight {
-            transform: scale(1.12);
-            border-color: #FFEB3B;
-        }
-
-        #zigzag-alert {
-            position: absolute;
-            bottom: 150px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #FF5722;
             color: white;
-            padding: 5px 20px;
-            border-radius: 20px;
-            font-size: 1.1rem;
+            border-radius: 30px;
+            border: 6px solid white;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+            text-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+            transition: transform 0.2s, background 0.2s;
+        }
+        #ans-left { left: 8%; background: var(--box-color-1); }
+        #ans-right { right: 8%; background: var(--box-color-2); }
+        
+        .answer-box.hovered { transform: scale(1.1); border-color: #ffeaa7; }
+
+        /* Feedback Overlay */
+        #feedback {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 10vw;
             font-weight: bold;
-            display: none;
+            text-shadow: 4px 4px 10px rgba(0,0,0,0.5);
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.3s;
+            z-index: 5;
+        }
+
+        #zigzag-mode {
+            position: absolute;
+            top: 20%; left: 50%;
+            transform: translateX(-50%);
+            background: #ff7f50;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 2vw;
+            font-weight: bold;
+            border: 3px dashed white;
             animation: pulse 1s infinite;
         }
 
         @keyframes pulse {
-            0%,100% { transform: translateX(-50%) scale(1); }
+            0% { transform: translateX(-50%) scale(1); }
             50% { transform: translateX(-50%) scale(1.05); }
+            100% { transform: translateX(-50%) scale(1); }
         }
 
-        #feedback-effect {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: clamp(2rem, 8vw, 5rem);
-            font-weight: bold;
-            text-shadow: 0 3px 10px rgba(0,0,0,0.5);
-            opacity: 0;
-            transition: opacity 0.3s;
-            white-space: nowrap;
-        }
-
-        /* ข้อความเตือนเวลาไม่เจอคน */
-        #hint-box {
-            position: absolute;
-            bottom: 12px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.65);
-            color: #fff;
-            padding: 6px 18px;
+        /* --- Modals / Settings --- */
+        .modal {
+            background: white;
+            padding: 30px;
             border-radius: 20px;
-            font-size: 1rem;
-            display: none;
+            width: 80%; max-width: 500px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            text-align: center;
         }
-
+        .modal select, .modal input {
+            font-family: var(--font-main);
+            font-size: 1.2rem;
+            padding: 10px;
+            margin: 10px 0;
+            width: 100%;
+            border-radius: 10px;
+            border: 2px solid #ccc;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
+        th { background: #f1f2f6; }
+        
+        /* Loading Overlay */
         #loading {
             position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.85);
-            color: white;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            padding: 20px;
-            font-size: 1.5rem;
+            top:0; left:0; width:100%; height:100%;
+            background: rgba(255,255,255,0.9);
             z-index: 100;
-        }
-        #loading.show { display: flex; }
-
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 10px 8px; text-align: center; font-size: 1.05rem; }
-        th { background-color: var(--primary-color); color: white; }
-
-        /* ปุ่มหยุดเกม */
-        #btn-stop {
-            position: absolute;
-            top: calc(10px + var(--safe-t));
-            right: calc(10px + var(--safe-r));
-            z-index: 20;
-            min-width: 0;
-            min-height: 52px;
-            padding: 12px 24px;
-            font-size: 1rem;
-            margin: 0;
-        }
-
-        /* ปุ่มเต็มจอ (ช่วยให้แท็บเล็ตซ่อนแถบเบราว์เซอร์ระหว่างเล่น) */
-        #btn-fullscreen {
-            position: absolute;
-            top: calc(10px + var(--safe-t));
-            right: calc(150px + var(--safe-r));
-            z-index: 20;
-            min-width: 0;
-            min-height: 52px;
-            padding: 12px 18px;
-            font-size: 1rem;
-            margin: 0;
-            background: rgba(0,0,0,0.5);
-        }
-
-        /* ---------- แท็บเล็ต ---------- */
-
-        /* จอ 4:3 หรือแนวตั้ง: กล่องคำตอบขยับขึ้นและกว้างขึ้น เพราะภาพกล้องถูก crop ด้านข้าง */
-        @media (max-aspect-ratio: 4/3) {
-            .answer-box {
-                bottom: calc(8% + var(--safe-b));
-                min-width: min(36vw, 300px);
-                max-width: 42vw;
-                padding: 22px 24px;
-            }
-            #zigzag-alert { bottom: calc(8% + 130px + var(--safe-b)); }
-            #question-box { max-width: calc(100% - 40px); font-size: clamp(1rem, 2.8vw, 1.6rem); }
-        }
-
-        /* แท็บเล็ตแนวตั้ง: กล่องคะแนนกับโจทย์จะชนกัน ย้ายโจทย์ลงมาอยู่ใต้กล่องคะแนน */
-        @media (orientation: portrait) and (min-width: 600px) {
-            #stats-bar { font-size: 1.15rem; }
-            #question-box { top: calc(130px + var(--safe-t)); max-width: calc(100% - 30px); }
-            .answer-box { font-size: clamp(1.5rem, 4.5vw, 2.4rem); }
-            #ans-left { left: 3%; }
-            #ans-right { right: 3%; }
-        }
-
-        /* แท็บเล็ตทั่วไป (iPad ~768-1366px): ตัวหนังสือและเป้าแตะใหญ่ขึ้นทั้งระบบ */
-        @media (min-width: 600px) and (max-width: 1400px) and (pointer: coarse) {
-            button { min-height: 68px; font-size: 1.35rem; padding: 18px 44px; }
-            .settings-box, .leaderboard-box, .login-box { max-width: 620px; padding: 34px; }
-            .settings-box label { font-size: 1.3rem; }
-            .settings-box select, .settings-box input, .login-box input {
-                padding: 16px; font-size: 1.25rem; min-height: 58px;
-            }
-            #stats-bar { font-size: 1.25rem; padding: 14px 24px; }
-            #hint-box { font-size: 1.15rem; padding: 10px 24px; }
-        }
-
-        /* จอเตี้ย: บีบกล่องตั้งค่าให้พอดีจอ จะได้ไม่ต้องเลื่อนหาปุ่มบันทึก */
-        @media (max-height: 800px) {
-            .settings-box { padding: 20px 28px; }
-            .settings-box label { margin: 10px 0 4px; }
-            .settings-box h2 { margin: 0 0 6px; }
-            .settings-box select, .settings-box input { padding: 11px; min-height: 50px; }
-        }
-
-        /* จอเตี้ยมาก (แท็บเล็ตแนวนอนเล็ก) ลดขนาดลงไม่ให้ล้น */
-        @media (max-height: 560px) {
-            .answer-box { bottom: calc(16px + var(--safe-b)); padding: 12px 20px; }
-            #zigzag-alert { bottom: calc(16px + 100px + var(--safe-b)); font-size: 0.95rem; }
-            h1 { margin-bottom: 16px; }
-            button { min-height: 52px; }
+            display: flex;
+            justify-content: center; align-items: center;
+            font-size: 3vw; font-weight: bold; color: #3742fa;
         }
     </style>
 </head>
 <body>
 
-    <!-- หน้าเข้าสู่ระบบ -->
-    <div id="screen-login" class="screen active">
+    <!-- Loading Screen -->
+    <div id="loading">กำลังโหลดระบบ AI... กรุณารอสักครู่ (อนุญาตให้ใช้กล้องด้วยนะครับ)</div>
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="screen hidden">
         <h1>🔒 เข้าสู่ระบบ</h1>
-        <div class="login-box">
+        <div class="modal">
             <h2>กรอกรหัสผ่านเพื่อเริ่มเล่น</h2>
-            <input type="password" id="login-password" placeholder="รหัสผ่าน" autocomplete="current-password" inputmode="text" autocapitalize="off" autocorrect="off" spellcheck="false">
-            <div id="login-error"></div>
-            <button id="login-btn" onclick="doLogin()">เข้าสู่ระบบ</button>
+            <input type="password" id="login-password" placeholder="รหัสผ่าน"
+                   autocomplete="current-password" inputmode="text"
+                   autocapitalize="off" autocorrect="off" spellcheck="false">
+            <div id="login-error" style="color:#ff4757; font-weight:bold; min-height:1.6em;"></div>
+            <button class="btn" id="login-btn" onclick="doLogin()">เข้าสู่ระบบ</button>
         </div>
     </div>
 
-    <!-- หน้าแรก -->
-    <div id="screen-home" class="screen">
-        <h1>เกม มาตราตัวสะกด "แม่กก"</h1>
-        <button onclick="startGame()">▶ เริ่มเกม</button>
-        <button class="btn-secondary" onclick="showScreen('screen-settings')">⚙️ โหมดครู (ตั้งค่า)</button>
-        <button class="btn-secondary" onclick="showLeaderboard()">🏆 ตารางคะแนน</button>
-        <button class="btn-danger" onclick="doLogout()">ออกจากระบบ</button>
-        <p id="tablet-tip" style="display:none; max-width:560px; text-align:center; font-size:1.1rem; color:#2E7D32; background:rgba(255,255,255,0.7); padding:12px 18px; border-radius:16px; margin-top:18px;"></p>
+    <!-- Start Screen -->
+    <div id="start-screen" class="screen hidden">
+        <h1>เกมมาตราตัวสะกด "แม่กก"<br>🏃‍♂️ วิ่งแตะคำตอบ ✋</h1>
+        <button class="btn" onclick="startGame()">▶️ เริ่มเกม</button>
+        <button class="btn btn-teacher" onclick="showSettings()">⚙️ โหมดครู (ตั้งค่า)</button>
+        <button class="btn btn-teacher" style="background:#2ed573;" onclick="showLeaderboard()">🏆 ตารางคะแนน</button>
     </div>
 
-    <!-- หน้าการตั้งค่า (โหมดครู) -->
-    <div id="screen-settings" class="screen">
-        <div class="settings-box">
-            <h2 style="text-align: center; color: #2E7D32;">⚙️ โหมดครู</h2>
+    <!-- Teacher Settings Modal -->
+    <div id="settings-screen" class="screen hidden" style="background: rgba(0,0,0,0.7);">
+        <div class="modal">
+            <h2>⚙️ โหมดครู (ตั้งค่าเกม)</h2>
             <label>จำนวนโจทย์ที่ต้องการเล่น:</label>
-            <select id="set-questions">
-                <option value="10">10 ข้อ (สุ่มจาก 20 ข้อ)</option>
+            <select id="setting-q-count">
+                <option value="10">10 ข้อ</option>
                 <option value="20" selected>20 ข้อ (ทั้งหมด)</option>
             </select>
-
             <label>สีกรอบคำศัพท์:</label>
-            <input type="color" id="set-color" value="#FF9800">
-
-            <label>ความไวในการตอบ (ค้างมือกี่วินาที):</label>
-            <select id="set-dwell">
-                <option value="400">เร็ว (0.4 วิ)</option>
-                <option value="700" selected>ปานกลาง (0.7 วิ)</option>
-                <option value="1100">ช้า / แม่นยำ (1.1 วิ)</option>
+            <select id="setting-color">
+                <option value="default">ชมพู - ฟ้า (ค่าเริ่มต้น)</option>
+                <option value="alt">ส้ม - เขียว</option>
             </select>
-
-            <label>จำนวนผู้เล่น:</label>
-            <select id="set-players">
-                <option value="1">เล่นเดี่ยว</option>
-            </select>
-
-            <label style="display:flex; align-items:center; cursor:pointer;">
-                <input type="checkbox" id="set-zigzag" style="width:20px; height:20px; margin-right:10px;">
-                เปิดโหมด "วิ่งซิกแซกกรวย"
+            <label style="display: flex; align-items: center; justify-content: center; gap: 10px; margin: 15px 0;">
+                <input type="checkbox" id="setting-zigzag" style="width:25px; height:25px;"> 
+                เปิดโหมด "วิ่งซิกแซกผ่านกรวย"
             </label>
+            <button class="btn" onclick="saveSettings()">บันทึก</button>
+        </div>
+    </div>
 
-            <div style="text-align: center; margin-top: 20px;">
-                <button onclick="saveSettings()">บันทึกและกลับ</button>
+    <!-- Leaderboard Modal -->
+    <div id="leaderboard-screen" class="screen hidden" style="background: rgba(0,0,0,0.7);">
+        <div class="modal">
+            <h2>🏆 Top 10 ผู้เล่นคนเก่ง</h2>
+            <div id="leaderboard-content"></div>
+            <button class="btn" onclick="document.getElementById('leaderboard-screen').classList.add('hidden')">ปิด</button>
+        </div>
+    </div>
+
+    <!-- End Game Screen -->
+    <div id="end-screen" class="screen hidden">
+        <h1>🎉 จบเกมแล้ว! 🎉</h1>
+        <h2 id="final-score" style="font-size:4vw; color:#2ed573;"></h2>
+        <input type="text" id="player-name" placeholder="พิมพ์ชื่อนักเรียนที่นี่..." style="font-size:2vw; padding:10px; margin:20px; width:50%; text-align:center; font-family:var(--font-main); border: 2px solid #ccc; border-radius:15px;">
+        <button class="btn" onclick="saveScoreAndRestart()">บันทึกคะแนนและกลับหน้าหลัก</button>
+    </div>
+
+    <!-- Game Container -->
+    <div id="game-container" class="hidden">
+        <video id="video" playsinline></video>
+        <canvas id="canvas"></canvas>
+        
+        <div id="game-ui">
+            <div class="hud-top">
+                <div class="score-board">ข้อที่ <span id="q-number">1</span>/<span id="q-total">20</span></div>
+                <div class="score-board">คะแนน: <span id="score-display">0</span></div>
             </div>
-        </div>
-    </div>
+            
+            <div id="zigzag-mode" class="hidden">🏃 ให้นักเรียนวิ่งซิกแซกผ่านกรวยก่อนแตะคำตอบ!</div>
 
-    <!-- หน้าตารางคะแนน -->
-    <div id="screen-leaderboard" class="screen">
-        <div class="leaderboard-box">
-            <h2 style="text-align: center; color: #E91E63;">🏆 Top 10 คะแนนสูงสุด</h2>
-            <div id="leaderboard-table"></div>
-            <div style="text-align: center; margin-top: 20px;">
-                <button class="btn-secondary" onclick="showScreen('screen-home')">กลับหน้าแรก</button>
+            <!-- Question: Displayed as Word 1 + Word 2 -->
+            <div id="question-box">
+                <span id="q-word-1"></span> <span class="plus-sign">+</span> <span id="q-word-2"></span>
             </div>
+            
+            <!-- Answers -->
+            <div id="ans-left" class="answer-box">ตัวเลือก 1</div>
+            <div id="ans-right" class="answer-box">ตัวเลือก 2</div>
+            
+            <!-- Feedback Correct/Wrong -->
+            <div id="feedback"></div>
         </div>
     </div>
-
-    <!-- หน้าเกม -->
-    <div id="screen-game" class="screen" style="background:#000; padding:0;">
-        <div id="game-container">
-            <video id="videoElement" autoplay playsinline muted style="display:none;"></video>
-            <canvas id="canvasElement"></canvas>
-
-            <div id="ui-layer">
-                <div id="stats-bar">
-                    ⭐ คะแนน: <span id="score-display">0</span><br>
-                    🎯 แตะสำเร็จ: <span id="hit-count">0</span> ครั้ง<br>
-                    📋 ข้อที่ <span id="q-progress">1/20</span>
-                </div>
-
-                <div id="question-box">
-                    <span id="q-text">ข้อที่ 1</span> <span class="plus-sign">+</span> <span style="color:#2196F3;">แม่กก</span>
-                </div>
-
-                <div id="ans-left" class="answer-box"><div class="fill"></div><span class="label">คำตอบซ้าย</span></div>
-                <div id="ans-right" class="answer-box"><div class="fill"></div><span class="label">คำตอบขวา</span></div>
-
-                <div id="zigzag-alert">🏃‍♂️ วิ่งซิกแซกผ่านกรวยก่อนแตะคำตอบ!</div>
-                <div id="feedback-effect">✔️</div>
-                <div id="hint-box">ถอยห่างจากกล้องให้เห็นแขนทั้งสองข้าง</div>
-            </div>
-        </div>
-        <button id="btn-fullscreen" onclick="toggleFullscreen()" title="เต็มจอ">⛶</button>
-        <button id="btn-stop" class="btn-danger" onclick="endGame()">หยุดเกม</button>
-    </div>
-
-    <!-- หน้าสรุปผล -->
-    <div id="screen-gameover" class="screen">
-        <h1 id="final-title">จบเกม!</h1>
-        <h2 style="font-size: 2rem; color: #FF9800;">คะแนนของคุณ: <span id="final-score">0</span></h2>
-
-        <div style="margin: 20px 0; display:flex; flex-direction:column; align-items:center;">
-            <label style="font-size:1.2rem; font-weight:bold; margin-bottom:10px;">บันทึกชื่อของคุณ:</label>
-            <input type="text" id="player-name" placeholder="ชื่อผู้เล่น" maxlength="20" style="padding:10px; font-size:1.2rem; border-radius:10px; border:2px solid #ccc; text-align:center;">
-        </div>
-
-        <div>
-            <button onclick="saveScore()">บันทึกคะแนน</button>
-            <button onclick="startGame()">🔄 เล่นอีกครั้ง</button>
-            <button class="btn-secondary" onclick="showScreen('screen-home')">หน้าแรก</button>
-        </div>
-    </div>
-
-    <div id="loading">กำลังเปิดกล้องและโหลด AI... กรุณารอสักครู่</div>
 
 <script>
-    'use strict';
-
-    /* =========================================
-       ระบบเข้าสู่ระบบ (รหัสผ่านชั้นเดียว)
-       หมายเหตุ: เก็บเป็น SHA-256 ไม่ได้เก็บรหัสตรง ๆ ในไฟล์
-       แต่เป็นการตรวจฝั่งเบราว์เซอร์ จึงกันได้แค่ระดับ "ไม่ให้คนทั่วไปเข้าเล่น"
-    ========================================= */
+    /* --- ระบบเข้าสู่ระบบ (รหัสผ่านชั้นเดียว) ---
+       เก็บเป็น SHA-256 ไม่ได้เก็บรหัสตรง ๆ ในไฟล์
+       เป็นการตรวจฝั่งเบราว์เซอร์ กันได้แค่ระดับ "ไม่ให้คนทั่วไปเปิดเล่น"
+       เปลี่ยนรหัส: printf 'รหัสใหม่' | shasum -a 256 แล้วแก้ค่าข้างล่าง */
     const PASSWORD_HASH = 'd3937fdcb00540f9b25342bb876b1ba26dd349b37226b9b6193b0efa539160ab';
     const AUTH_KEY = 'maekok_auth';
 
     async function sha256(text) {
         const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-        return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function isLoggedIn() {
+        return sessionStorage.getItem(AUTH_KEY) === PASSWORD_HASH;
     }
 
     async function doLogin() {
@@ -524,6 +346,7 @@
         const btn = document.getElementById('login-btn');
         const value = input.value.trim();
 
+        errorEl.innerText = '';
         if (!value) { errorEl.innerText = 'กรุณากรอกรหัสผ่าน'; return; }
 
         btn.disabled = true;
@@ -531,744 +354,396 @@
             const hash = await sha256(value);
             if (hash === PASSWORD_HASH) {
                 sessionStorage.setItem(AUTH_KEY, hash);
-                errorEl.innerText = '';
                 input.value = '';
-                showScreen('screen-home');
+                document.getElementById('login-screen').classList.add('hidden');
+                enterApp();
             } else {
                 errorEl.innerText = '❌ รหัสผ่านไม่ถูกต้อง';
                 input.value = '';
                 input.focus();
             }
         } catch (e) {
-            // crypto.subtle ใช้ได้เฉพาะ https หรือ localhost
             errorEl.innerText = 'ตรวจรหัสผ่านไม่ได้ (ต้องเปิดผ่าน https หรือ localhost)';
         } finally {
             btn.disabled = false;
         }
     }
 
-    function doLogout() {
-        sessionStorage.removeItem(AUTH_KEY);
-        stopEverything();
-        showScreen('screen-login');
+    // ผ่านล็อกอินแล้วค่อยเปิดกล้อง จะได้ไม่ขอสิทธิ์กล้องตั้งแต่ยังไม่ได้เข้าเกม
+    function enterApp() {
+        document.getElementById('loading').classList.remove('hidden');
+        initCamera();
     }
 
-    function isLoggedIn() {
-        return sessionStorage.getItem(AUTH_KEY) === PASSWORD_HASH;
-    }
-
-    /* =========================================
-       ฐานข้อมูลโจทย์
-    ========================================= */
-    /* ชุดคำถามของครู (นำเข้าจากไฟล์เกมเวอร์ชัน "วิ่งแตะคำตอบ")
-       ตำแหน่งซ้าย/ขวาถูกสุ่มใหม่ทุกครั้งใน loadQuestion() ลำดับในนี้จึงไม่มีผล */
-    const rawQuestions = [
-        // ตัวสะกด ก (ตรงมาตรา)
-        { q: "หาคำ", left: "ปาก", right: "ดม", ans: "ปาก" },
-        { q: "หาคำ", left: "นก", right: "กราบ", ans: "นก" },
-        { q: "หาคำ", left: "ดาว", right: "ผัก", ans: "ผัก" },
-        { q: "หาคำ", left: "มาก", right: "กิน", ans: "มาก" },
-        { q: "หาคำ", left: "หิว", right: "แตก", ans: "แตก" },
-        { q: "หาคำ", left: "มด", right: "เสก", ans: "เสก" },
-        { q: "หาคำ", left: "ดอก", right: "กลม", ans: "ดอก" },
-        { q: "หาคำ", left: "พริก", right: "แมว", ans: "พริก" },
-        { q: "หาคำ", left: "กรอบ", right: "หมอก", ans: "หมอก" },
-        { q: "หาคำ", left: "หอม", right: "จมูก", ans: "จมูก" },
-        // ตัวสะกด ข ค ฆ (ไม่ตรงมาตรา)
-        { q: "หาคำ", left: "เลข", right: "ภาพ", ans: "เลข" },
-        { q: "หาคำ", left: "ครุฑ", right: "พรรค", ans: "พรรค" },
-        { q: "หาคำ", left: "โทรศัพท์", right: "เชื้อโรค", ans: "เชื้อโรค" },
-        { q: "หาคำ", left: "วิหค", right: "กระดาษ", ans: "วิหค" },
-        { q: "หาคำ", left: "สุนัข", right: "เคารพ", ans: "สุนัข" },
-        { q: "หาคำ", left: "เมฆ", right: "โบราณ", ans: "เมฆ" },
-        { q: "หาคำ", left: "พญานาค", right: "บุญคุณ", ans: "พญานาค" },
-        { q: "หาคำ", left: "สุภาพ", right: "เชื้อโรค", ans: "เชื้อโรค" },
-        { q: "หาคำ", left: "จรวด", right: "บริจาค", ans: "บริจาค" },
-        { q: "หาคำ", left: "ประมุข", right: "ยีราฟ", ans: "ประมุข" }
+    // --- Data: ชุดคำถามมาตรา แม่กก ---
+    const allQuestions = [
+        // 1–10 ตรงมาตรา
+        { choices: ['ปาก', 'ดม'], correct: 0 },
+        { choices: ['นก', 'กราบ'], correct: 0 },
+        { choices: ['ดาว', 'ผัก'], correct: 1 },
+        { choices: ['มาก', 'กิน'], correct: 0 },
+        { choices: ['หิว', 'แตก'], correct: 1 },
+        { choices: ['มด', 'เสก'], correct: 1 },
+        { choices: ['ดอก', 'กลม'], correct: 0 },
+        { choices: ['พริก', 'แมว'], correct: 0 },
+        { choices: ['กรอบ', 'หมอก'], correct: 1 },
+        { choices: ['หอม', 'จมูก'], correct: 1 },
+        // 11–20 ไม่ตรงมาตรา
+        { choices: ['เลข', 'ภาพ'], correct: 0 },
+        { choices: ['ครุฑ', 'พรรค'], correct: 1 },
+        { choices: ['โทรศัพท์', 'เชื้อโรค'], correct: 1 },
+        { choices: ['วิหค', 'กระดาษ'], correct: 0 },
+        { choices: ['สุนัข', 'เคารพ'], correct: 0 },
+        { choices: ['เมฆ', 'โบราณ'], correct: 0 },
+        { choices: ['พญานาค', 'บุญคุณ'], correct: 0 },
+        { choices: ['สุภาพ', 'เชื้อโรค'], correct: 1 },
+        { choices: ['จรวด', 'บริจาค'], correct: 1 },
+        { choices: ['ประมุข', 'ยีราฟ'], correct: 0 }
     ];
 
-    /* =========================================
-       ตัวแปรระบบ
-    ========================================= */
-    let detector = null;
-    let video, canvas, ctx;
-    let stream = null;
-    let isPlaying = false;
-    let loopId = null;          // id ของ requestAnimationFrame (กัน loop ซ้อน)
-    let isDetecting = false;    // กันเรียก estimatePoses ซ้อนกัน
-    let lastDetectTime = 0;
-    let score = 0, hitCount = 0, currentQuestionIndex = 0;
-    let questionsList = [];
-    let isWaitingNext = false;
-    let starting = false;       // กันกดเริ่มเกมรัว ๆ
+    // --- State Variables ---
+    let questions = [];
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let successCount = 0;
+    let streakCount = 0;
+    let gameActive = false;
+    let cooldown = false;
+    let maxQuestions = 20;
 
-    // สถานะ "ค้างมือ" ของแต่ละกล่อง
-    const dwell = { left: 0, right: 0 };
-    let lastFrameTime = 0;
-    let lastPoseTime = 0;       // เวลาที่เจอคนล่าสุด
-    let smoothed = {};          // ค่าเฉลี่ยเคลื่อนที่ของ keypoint (ลดอาการสั่น)
+    // --- DOM Elements ---
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const boxLeft = document.getElementById('ans-left');
+    const boxRight = document.getElementById('ans-right');
+    const feedback = document.getElementById('feedback');
 
-    let config = {
-        totalQ: 20,
-        frameColor: '#FF9800',
-        zigzag: false,
-        dwellMs: 700
-    };
-
-    const DETECT_INTERVAL = 33;   // ตรวจจับสูงสุด ~30 ครั้ง/วินาที
-    const MIN_SCORE = 0.35;       // ความมั่นใจขั้นต่ำของจุดข้อมือ
-    const SMOOTH = 0.55;          // น้ำหนักค่าเก่าใน EMA
-
-    /* =========================================
-       เสียง (สร้าง AudioContext ตอนผู้ใช้กดครั้งแรกเท่านั้น)
-    ========================================= */
-    let audioCtx = null;
-
-    function ensureAudio() {
-        try {
-            if (!audioCtx) {
-                const AC = window.AudioContext || window.webkitAudioContext;
-                if (AC) audioCtx = new AC();
-            }
-            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-        } catch (e) { /* ไม่มีเสียงก็ยังเล่นเกมได้ */ }
-    }
+    // --- Audio Context for Synthesized Sounds (No external audio files needed) ---
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
 
     function playSound(type) {
-        ensureAudio();
-        if (!audioCtx) return;
-        try {
-            const osc = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-            osc.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-            const t = audioCtx.currentTime;
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
 
-            if (type === 'correct') {
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(600, t);
-                osc.frequency.exponentialRampToValueAtTime(1200, t + 0.1);
-                gainNode.gain.setValueAtTime(0.5, t);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, t + 0.4);
-                osc.start(t); osc.stop(t + 0.4);
-            } else if (type === 'wrong') {
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(300, t);
-                osc.frequency.exponentialRampToValueAtTime(150, t + 0.2);
-                gainNode.gain.setValueAtTime(0.4, t);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
-                osc.start(t); osc.stop(t + 0.3);
-            } else if (type === 'bonus') {
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(400, t);
-                osc.frequency.exponentialRampToValueAtTime(800, t + 0.1);
-                osc.frequency.exponentialRampToValueAtTime(1600, t + 0.2);
-                gainNode.gain.setValueAtTime(0.35, t);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, t + 0.5);
-                osc.start(t); osc.stop(t + 0.5);
-            }
-        } catch (e) { /* ข้ามไป */ }
-    }
-
-    /* =========================================
-       ระบบ UI
-    ========================================= */
-    function showScreen(id) {
-        // กันเข้าหน้าอื่นถ้ายังไม่ได้ล็อกอิน
-        if (id !== 'screen-login' && !isLoggedIn()) id = 'screen-login';
-
-        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-
-        if (id !== 'screen-game') stopEverything();
-        if (id === 'screen-login') {
-            const el = document.getElementById('login-password');
-            setTimeout(() => el.focus(), 50);
-        }
-    }
-
-    function saveSettings() {
-        config.totalQ = parseInt(document.getElementById('set-questions').value, 10);
-        config.frameColor = document.getElementById('set-color').value;
-        config.zigzag = document.getElementById('set-zigzag').checked;
-        config.dwellMs = parseInt(document.getElementById('set-dwell').value, 10);
-
-        document.documentElement.style.setProperty('--frame-color', config.frameColor);
-        try { localStorage.setItem('maekok_cfg', JSON.stringify(config)); } catch (e) {}
-        showScreen('screen-home');
-    }
-
-    function loadSettings() {
-        try {
-            const saved = JSON.parse(localStorage.getItem('maekok_cfg'));
-            if (saved) config = Object.assign(config, saved);
-        } catch (e) {}
-        document.getElementById('set-questions').value = String(config.totalQ);
-        document.getElementById('set-color').value = config.frameColor;
-        document.getElementById('set-zigzag').checked = !!config.zigzag;
-        document.getElementById('set-dwell').value = String(config.dwellMs);
-        document.documentElement.style.setProperty('--frame-color', config.frameColor);
-    }
-
-    function readLeaderboard() {
-        try {
-            const lb = JSON.parse(localStorage.getItem('maekok_lb'));
-            return Array.isArray(lb) ? lb : [];
-        } catch (e) { return []; }
-    }
-
-    function showLeaderboard() {
-        const lb = readLeaderboard().sort((a, b) => b.score - a.score).slice(0, 10);
-        const table = document.createElement('table');
-        const head = table.insertRow();
-        ['อันดับ', 'ชื่อผู้เล่น', 'คะแนน', 'วันที่'].forEach(t => {
-            const th = document.createElement('th');
-            th.textContent = t;
-            head.appendChild(th);
-        });
-
-        if (lb.length === 0) {
-            const cell = table.insertRow().insertCell();
-            cell.colSpan = 4;
-            cell.textContent = 'ยังไม่มีข้อมูล';
-        } else {
-            lb.forEach((entry, i) => {
-                const row = table.insertRow();
-                // ใช้ textContent เพื่อไม่ให้ชื่อผู้เล่นถูกตีความเป็น HTML
-                [i + 1, entry.name, entry.score, entry.date].forEach(v => {
-                    row.insertCell().textContent = v;
-                });
+        if(type === 'correct') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+            osc.frequency.exponentialRampToValueAtTime(1046.50, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
+        } else if(type === 'wrong') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        } else if(type === 'bonus') {
+            const freqs = [523.25, 659.25, 783.99, 1046.50];
+            freqs.forEach((f, i) => {
+                const o = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                o.connect(g);
+                g.connect(audioCtx.destination);
+                o.frequency.value = f;
+                g.gain.setValueAtTime(0, audioCtx.currentTime);
+                g.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + i*0.1 + 0.05);
+                g.gain.linearRampToValueAtTime(0, audioCtx.currentTime + i*0.1 + 0.2);
+                o.start(audioCtx.currentTime + i*0.1);
+                o.stop(audioCtx.currentTime + i*0.1 + 0.2);
             });
         }
-
-        const holder = document.getElementById('leaderboard-table');
-        holder.textContent = '';
-        holder.appendChild(table);
-        showScreen('screen-leaderboard');
     }
 
-    function saveScore() {
-        const name = (document.getElementById('player-name').value || '').trim() || 'นักเรียนนิรนาม';
-        const lb = readLeaderboard();
-        lb.push({ name: name.slice(0, 20), score: score, date: new Date().toLocaleDateString('th-TH') });
-        try {
-            localStorage.setItem('maekok_lb', JSON.stringify(lb.sort((a, b) => b.score - a.score).slice(0, 50)));
-        } catch (e) {}
-        document.getElementById('player-name').value = '';
-        showLeaderboard();
-    }
-
-    /* =========================================
-       กล้อง + AI
-    ========================================= */
-    function setLoading(text) {
-        const el = document.getElementById('loading');
-        if (text === null) { el.classList.remove('show'); return; }
-        el.textContent = text;
-        el.classList.add('show');
-    }
-
-    async function waitForLibs(timeoutMs = 20000) {
-        const start = Date.now();
-        while (typeof poseDetection === 'undefined' || typeof tf === 'undefined') {
-            if (Date.now() - start > timeoutMs) throw new Error('โหลดไลบรารี AI ไม่สำเร็จ (เช็คอินเทอร์เน็ต)');
-            await new Promise(r => setTimeout(r, 100));
-        }
-    }
-
-    async function initAI() {
-        setLoading('กำลังโหลด AI...');
-        await waitForLibs();
-        await tf.setBackend('webgl');
-        await tf.ready();
-
-        if (!detector) {
-            detector = await poseDetection.createDetector(
-                poseDetection.SupportedModels.MoveNet,
-                { modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING }
-            );
-        }
-    }
-
-    async function initCamera() {
-        setLoading('กำลังเปิดกล้อง...');
-        video = document.getElementById('videoElement');
-
-        // ถ้ากล้องเดิมยังใช้ได้อยู่ ไม่ต้องเปิดใหม่
-        if (stream && stream.getVideoTracks().some(t => t.readyState === 'live')) {
-            if (video.paused) await video.play().catch(() => {});
-            return;
-        }
-
-        stopStream();
-        // แท็บเล็ตส่วนใหญ่ให้ภาพ 4:3 อยู่แล้ว ขอ 960x720 เพื่อให้จับมือแม่นขึ้นโดยไม่หนักเครื่อง
-        stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 960 }, height: { ideal: 720 } },
-            audio: false
-        });
-        video.srcObject = stream;
-
-        // รอจนวิดีโอมีขนาดจริงและเล่นแล้ว (ไม่งั้น detect ได้ค่าว่าง)
-        await new Promise((resolve, reject) => {
-            const timer = setTimeout(() => reject(new Error('กล้องไม่ตอบสนอง')), 15000);
-            const check = () => {
-                if (video.readyState >= 2 && video.videoWidth > 0) {
-                    clearTimeout(timer);
-                    resolve();
-                }
-            };
-            video.onloadeddata = check;
-            video.onloadedmetadata = check;
-            check();
-        });
-        await video.play().catch(() => {});
-    }
-
-    /* =========================================
-       เต็มจอ + กันจอดับ (สำคัญบนแท็บเล็ต เพราะเด็กไม่ได้แตะจอระหว่างเล่น)
-    ========================================= */
-    let wakeLock = null;
-
-    async function requestWakeLock() {
-        try {
-            if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
-        } catch (e) { /* บางเครื่องไม่รองรับ ปล่อยผ่าน */ }
-    }
-
-    function releaseWakeLock() {
-        if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
-    }
-
-    function toggleFullscreen() {
-        const el = document.documentElement;
-        try {
-            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-                (el.requestFullscreen || el.webkitRequestFullscreen || (() => {})).call(el);
-            } else {
-                (document.exitFullscreen || document.webkitExitFullscreen || (() => {})).call(document);
-            }
-        } catch (e) { /* iPad Safari รุ่นเก่าไม่รองรับ ยังเล่นได้ปกติ */ }
-        setTimeout(resizeCanvas, 400);
-    }
-
-    // คำแนะนำสำหรับแท็บเล็ต (อัปเดตเมื่อหมุนจอ)
-    function showTabletTip() {
-        const tip = document.getElementById('tablet-tip');
-        const isTablet = window.matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) >= 600;
-        if (!isTablet) { tip.style.display = 'none'; return; }
-        const portrait = window.matchMedia('(orientation: portrait)').matches;
-        tip.textContent = portrait
-            ? '📱 แนะนำให้หมุนแท็บเล็ตเป็นแนวนอน ตั้งบนขาตั้ง แล้วยืนห่างประมาณ 1.5–2 เมตร'
-            : '📱 ตั้งแท็บเล็ตให้มั่นคง ยืนห่างประมาณ 1.5–2 เมตร ให้กล้องเห็นแขนทั้งสองข้าง';
-        tip.style.display = 'block';
-    }
-
-    window.addEventListener('orientationchange', () => setTimeout(showTabletTip, 300));
-    window.addEventListener('resize', showTabletTip);
-
-    // ซ่อนปุ่มเต็มจอถ้าเบราว์เซอร์ไม่รองรับ (เช่น Safari บน iPhone)
-    function setupFullscreenButton() {
-        const el = document.documentElement;
-        const supported = !!(el.requestFullscreen || el.webkitRequestFullscreen);
-        document.getElementById('btn-fullscreen').style.display = supported ? '' : 'none';
-    }
-
-    function stopStream() {
-        if (stream) {
-            stream.getTracks().forEach(t => t.stop());
-            stream = null;
-        }
-        if (video) video.srcObject = null;
-    }
-
-    function stopEverything() {
-        isPlaying = false;
-        if (loopId !== null) { cancelAnimationFrame(loopId); loopId = null; }
-        stopStream();
-        releaseWakeLock();
-        setLoading(null);
-    }
-
-    /* =========================================
-       ขนาด canvas (ปรับตามหน้าจอจริง + DPR)
-    ========================================= */
-    function resizeCanvas() {
-        if (!canvas) return;
-        const rect = canvas.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) return;
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        const w = Math.round(rect.width * dpr);
-        const h = Math.round(rect.height * dpr);
-        if (canvas.width !== w || canvas.height !== h) {
-            canvas.width = w;
-            canvas.height = h;
-        }
-    }
-
-    window.addEventListener('resize', resizeCanvas);
-    window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 300));
-
-    // แปลงพิกัดจากภาพกล้อง -> พิกัดหน้าจอ (CSS px) โดยคิดเอฟเฟกต์ crop แบบ cover + กระจกเงา
-    function videoToScreen(x, y) {
-        const rect = canvas.getBoundingClientRect();
-        const vw = video.videoWidth, vh = video.videoHeight;
-        if (!vw || !vh) return null;
-        const scale = Math.max(rect.width / vw, rect.height / vh);
-        const dw = vw * scale, dh = vh * scale;
-        const dx = (rect.width - dw) / 2;
-        const dy = (rect.height - dh) / 2;
-        return {
-            x: rect.left + rect.width - (dx + x * scale), // กลับซ้าย-ขวาให้เหมือนส่องกระจก
-            y: rect.top + dy + y * scale
-        };
-    }
-
-    /* =========================================
-       เกมเพลย์
-    ========================================= */
-    async function startGame() {
-        if (starting) return;
-        starting = true;
-        ensureAudio();
-
-        try {
-            showScreen('screen-game');
-            canvas = document.getElementById('canvasElement');
-            ctx = canvas.getContext('2d');
-            resizeCanvas();
-
-            await initAI();
-            await initCamera();
-            resizeCanvas();
-            requestWakeLock();
-            setLoading(null);
-        } catch (e) {
-            setLoading(null);
-            stopEverything();
-            alert('เริ่มเกมไม่สำเร็จ: ' + (e && e.message ? e.message : e) +
-                  '\n\nกรุณาอนุญาตให้ใช้กล้อง และเปิดหน้านี้ผ่าน https หรือ localhost');
-            showScreen('screen-home');
-            starting = false;
-            return;
-        }
-
-        // เตรียมชุดโจทย์ (สลับลำดับเสมอ เพื่อไม่ให้เดาลำดับได้)
-        questionsList = shuffle([...rawQuestions]);
-        if (config.totalQ === 10) questionsList = questionsList.slice(0, 10);
-
-        questionsList.push({
-            q: "BONUS ROUND",
-            left: "ซุปเปอร์แมน",
-            right: "สไปเดอร์แมน",
-            ans: "ซุปเปอร์แมน",
-            isBonus: true
-        });
-
-        score = 0;
-        hitCount = 0;
-        currentQuestionIndex = 0;
-        isWaitingNext = false;
-        dwell.left = dwell.right = 0;
-        smoothed = {};
-        lastPoseTime = performance.now();
-        lastFrameTime = 0;
-
-        updateStats();
-        document.getElementById('zigzag-alert').style.display = config.zigzag ? 'block' : 'none';
-        document.getElementById('feedback-effect').style.opacity = 0;
-
-        loadQuestion();
-
-        isPlaying = true;
-        starting = false;
-        if (loopId !== null) cancelAnimationFrame(loopId);
-        loopId = requestAnimationFrame(gameLoop);
-    }
-
-    function shuffle(arr) {
-        for (let i = arr.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [arr[i], arr[j]] = [arr[j], arr[i]];
-        }
-        return arr;
-    }
-
-    function setAnswerText(box, text) {
-        box.querySelector('.label').textContent = text;
-    }
-
-    function loadQuestion() {
-        if (currentQuestionIndex >= questionsList.length) { endGame(); return; }
-
-        const q = questionsList[currentQuestionIndex];
-        const qBox = document.getElementById('question-box');
-        const leftBox = document.getElementById('ans-left');
-        const rightBox = document.getElementById('ans-right');
-
-        if (q.isBonus) {
-            qBox.textContent = 'BONUS ROUND! (+50 คะแนน)';
-            qBox.style.color = '#FF5722';
-            leftBox.style.borderColor = '#E91E63';
-            rightBox.style.borderColor = '#E91E63';
-        } else {
-            qBox.style.color = '#333';
-            qBox.innerHTML = '';
-            const part1 = document.createElement('span');
-            part1.textContent = q.q;
-            const plus = document.createElement('span');
-            plus.className = 'plus-sign';
-            plus.textContent = '+';
-            const part2 = document.createElement('span');
-            part2.style.color = '#2196F3';
-            part2.textContent = 'แม่กก';
-            qBox.append(part1, plus, part2);
-            leftBox.style.borderColor = config.frameColor;
-            rightBox.style.borderColor = config.frameColor;
-        }
-
-        const wrong = (q.ans === q.left) ? q.right : q.left;
-        const isLeftCorrect = Math.random() > 0.5;
-        setAnswerText(leftBox, isLeftCorrect ? q.ans : wrong);
-        setAnswerText(rightBox, isLeftCorrect ? wrong : q.ans);
-        leftBox.dataset.correct = String(isLeftCorrect);
-        rightBox.dataset.correct = String(!isLeftCorrect);
-
-        resetDwell();
-        updateStats();
-    }
-
-    function resetDwell() {
-        dwell.left = dwell.right = 0;
-        document.querySelectorAll('.answer-box .fill').forEach(f => f.style.width = '0%');
-    }
-
-    function updateStats() {
-        document.getElementById('score-display').textContent = score;
-        document.getElementById('hit-count').textContent = hitCount;
-        // นับเฉพาะข้อปกติ ไม่รวมรอบโบนัส
-        const total = questionsList.filter(q => !q.isBonus).length || config.totalQ;
-        const current = questionsList[currentQuestionIndex];
-        document.getElementById('q-progress').textContent =
-            (current && current.isBonus) ? 'BONUS ⭐' : (Math.min(currentQuestionIndex + 1, total) + '/' + total);
-    }
-
-    async function gameLoop(now) {
-        if (!isPlaying) return;
-        loopId = requestAnimationFrame(gameLoop);
-
-        const dt = lastFrameTime ? Math.min(now - lastFrameTime, 100) : 16;
-        lastFrameTime = now;
-
-        resizeCanvas();
-        drawVideoFrame();
-
-        // ตรวจจับท่าทางแบบจำกัดรอบ และไม่ให้ทับซ้อนกัน (เป็นสาเหตุหลักของอาการกระตุก)
-        if (!isDetecting && detector && video && video.readyState >= 2 &&
-            now - lastDetectTime >= DETECT_INTERVAL) {
-            isDetecting = true;
-            lastDetectTime = now;
-            detector.estimatePoses(video, { maxPoses: 1, flipHorizontal: false })
-                .then(poses => { handlePoses(poses, now); })
-                .catch(() => { /* ข้ามเฟรมที่ตรวจไม่ได้ */ })
-                .finally(() => { isDetecting = false; });
-        }
-
-        updateDwell(dt, now);
-    }
-
-    function drawVideoFrame() {
-        if (!ctx || !canvas) return;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        if (!video || !video.videoWidth) return;
-
-        const cw = canvas.width, ch = canvas.height;
-        const vw = video.videoWidth, vh = video.videoHeight;
-        const scale = Math.max(cw / vw, ch / vh);
-        const dw = vw * scale, dh = vh * scale;
-        const dx = (cw - dw) / 2, dy = (ch - dh) / 2;
-
-        ctx.save();
-        ctx.translate(cw, 0);
-        ctx.scale(-1, 1);   // กระจกเงา
-        ctx.drawImage(video, cw - dx - dw, dy, dw, dh);
-        ctx.restore();
-    }
-
-    let activeHands = [];   // ตำแหน่งมือ (พิกัดหน้าจอ) ของเฟรมล่าสุด
-
-    function handlePoses(poses, now) {
-        const hands = [];
-        if (poses && poses.length > 0) {
-            lastPoseTime = now;
-            const kp = poses[0].keypoints;
-            [9, 10].forEach(idx => {
-                const p = kp[idx];
-                if (!p || p.score < MIN_SCORE) { delete smoothed[idx]; return; }
-                // ทำให้จุดนิ่งขึ้นด้วยค่าเฉลี่ยเคลื่อนที่ ลดอาการจุดกระโดดไปมา
-                const prev = smoothed[idx];
-                const sx = prev ? prev.x * SMOOTH + p.x * (1 - SMOOTH) : p.x;
-                const sy = prev ? prev.y * SMOOTH + p.y * (1 - SMOOTH) : p.y;
-                smoothed[idx] = { x: sx, y: sy };
-                const screen = videoToScreen(sx, sy);
-                if (screen) hands.push(screen);
-            });
-        }
-        activeHands = hands;
-
-        // แจ้งเตือนเมื่อกล้องหาคนไม่เจอเกิน 2 วินาที
-        document.getElementById('hint-box').style.display =
-            (now - lastPoseTime > 2000) ? 'block' : 'none';
-    }
-
-    function drawHand(screenPos) {
-        const rect = canvas.getBoundingClientRect();
-        const dpr = canvas.width / rect.width;
-        const x = (screenPos.x - rect.left) * dpr;
-        const y = (screenPos.y - rect.top) * dpr;
-        ctx.beginPath();
-        ctx.arc(x, y, 15 * dpr, 0, 2 * Math.PI);
-        ctx.fillStyle = 'rgba(76, 175, 80, 0.7)';
-        ctx.fill();
-        ctx.lineWidth = 3 * dpr;
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.stroke();
-    }
-
-    function updateDwell(dt, now) {
-        activeHands.forEach(drawHand);
-
-        if (isWaitingNext || activeHands.length === 0) {
-            if (isWaitingNext) return;
-            decay(dt);
-            return;
-        }
-
-        const leftBox = document.getElementById('ans-left');
-        const rightBox = document.getElementById('ans-right');
-        const leftRect = leftBox.getBoundingClientRect();
-        const rightRect = rightBox.getBoundingClientRect();
-
-        const onLeft = activeHands.some(h => isInside(h.x, h.y, leftRect));
-        const onRight = activeHands.some(h => isInside(h.x, h.y, rightRect));
-
-        // ถ้ามือคร่อมทั้งสองกล่องพร้อมกัน ถือว่ายังไม่ตัดสินใจ
-        if (onLeft && onRight) { decay(dt); return; }
-
-        dwell.left = onLeft ? dwell.left + dt : Math.max(0, dwell.left - dt * 2);
-        dwell.right = onRight ? dwell.right + dt : Math.max(0, dwell.right - dt * 2);
-
-        paintDwell(leftBox, dwell.left);
-        paintDwell(rightBox, dwell.right);
-
-        if (dwell.left >= config.dwellMs) handleAnswer(leftBox);
-        else if (dwell.right >= config.dwellMs) handleAnswer(rightBox);
-    }
-
-    function decay(dt) {
-        dwell.left = Math.max(0, dwell.left - dt * 2);
-        dwell.right = Math.max(0, dwell.right - dt * 2);
-        paintDwell(document.getElementById('ans-left'), dwell.left);
-        paintDwell(document.getElementById('ans-right'), dwell.right);
-    }
-
-    function paintDwell(box, value) {
-        const pct = Math.min(100, (value / config.dwellMs) * 100);
-        box.querySelector('.fill').style.width = pct + '%';
-        box.classList.toggle('highlight', pct > 5);
-    }
-
-    function isInside(x, y, rect) {
-        const padding = 15;
-        return (x >= rect.left - padding && x <= rect.right + padding &&
-                y >= rect.top - padding && y <= rect.bottom + padding);
-    }
-
-    function handleAnswer(element) {
-        if (isWaitingNext) return;
-        isWaitingNext = true;
-        resetDwell();
-
-        const isCorrect = element.dataset.correct === 'true';
-        const isBonus = !!questionsList[currentQuestionIndex].isBonus;
-        const feedback = document.getElementById('feedback-effect');
-
-        element.classList.add('highlight');
-        element.querySelector('.fill').style.width = '100%';
-
-        if (isCorrect) {
-            score += isBonus ? 50 : 10;
-            playSound(isBonus ? 'bonus' : 'correct');
-            feedback.textContent = isBonus ? '⭐ ยอดเยี่ยม! +50' : '✔️ ถูกต้อง! +10';
-            feedback.style.color = isBonus ? '#FF9800' : '#4CAF50';
-            hitCount++;
-        } else {
-            score = Math.max(0, score - 5);   // ไม่ให้คะแนนติดลบ เด็กจะได้ไม่ท้อ
-            playSound('wrong');
-            feedback.textContent = '❌ ผิด! -5';
-            feedback.style.color = '#F44336';
-        }
-
-        updateStats();
-        feedback.style.opacity = 1;
-
-        setTimeout(() => {
-            feedback.style.opacity = 0;
-            element.classList.remove('highlight');
-            currentQuestionIndex++;
-            if (isPlaying) loadQuestion();
-            isWaitingNext = false;
-        }, 1500);
-    }
-
-    function endGame() {
-        const finished = currentQuestionIndex >= questionsList.length && questionsList.length > 0;
-        stopEverything();
-        document.getElementById('final-score').textContent = score;
-        document.getElementById('final-title').textContent =
-            finished ? '🎉 ยินดีด้วย จบเกมแล้ว! 🎉' : '🛑 หยุดเกม 🛑';
-        showScreen('screen-gameover');
-    }
-
-    /* =========================================
-       เหตุการณ์ทั่วไป
-    ========================================= */
-    // สลับแท็บ/ล็อกหน้าจอแล้วกลับมา: rAF จะหยุดไปเอง ต้องต่อ loop ใหม่ให้เกมไปต่อได้
-    document.addEventListener('visibilitychange', () => {
-        if (!isPlaying) return;
-        if (document.hidden) {
-            if (loopId !== null) { cancelAnimationFrame(loopId); loopId = null; }
-        } else {
-            lastFrameTime = 0;
-            resetDwell();
-            if (loopId === null) loopId = requestAnimationFrame(gameLoop);
-            if (video && video.paused) video.play().catch(() => {});
-            requestWakeLock();   // ระบบจะปลด wake lock ทุกครั้งที่สลับแอป ต้องขอใหม่
-            setTimeout(resizeCanvas, 200);
-        }
+    // --- MediaPipe Pose Setup ---
+    const pose = new Pose({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
     });
+    pose.setOptions({
+        modelComplexity: 1,
+        smoothLandmarks: true,
+        enableSegmentation: false,
+        minDetectionConfidence: 0.6,
+        minTrackingConfidence: 0.6
+    });
+    pose.onResults(onPoseResults);
 
-    ['fullscreenchange', 'webkitfullscreenchange'].forEach(evt =>
-        document.addEventListener(evt, () => setTimeout(resizeCanvas, 300)));
-
-    // แท็บเล็ต: แถบที่อยู่ของเบราว์เซอร์ยุบ/ขยายทำให้ความสูงจอเปลี่ยน ต้องวัด canvas ใหม่
-    if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', () => setTimeout(resizeCanvas, 100));
+    let camera;
+    async function initCamera() {
+        try {
+            camera = new Camera(video, {
+                onFrame: async () => { await pose.send({image: video}); },
+                width: 1280,
+                height: 720
+            });
+            await camera.start();
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+        } catch (err) {
+            alert("ไม่สามารถเข้าถึงกล้องได้ กรุณาอนุญาตการใช้กล้องและรีเฟรชหน้าเว็บ");
+            console.error(err);
+        }
     }
+    
+    // Resize canvas to match window
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
 
-    // กันซูมสองนิ้วบน Safari (iPad) ระหว่างเล่นเกม
-    ['gesturestart', 'gesturechange', 'gestureend'].forEach(evt =>
-        document.addEventListener(evt, e => e.preventDefault(), { passive: false }));
-
-    window.addEventListener('pagehide', stopEverything);
+    // เริ่มทำงานเมื่อโหลดเสร็จ: ยังไม่ล็อกอินให้ขึ้นหน้ารหัสผ่านก่อน
+    window.onload = () => {
+        if (isLoggedIn()) {
+            enterApp();
+        } else {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('login-password').focus();
+        }
+    };
 
     document.getElementById('login-password').addEventListener('keydown', e => {
         if (e.key === 'Enter') doLogin();
     });
 
-    loadSettings();
-    setupFullscreenButton();
-    showTabletTip();
-    showScreen(isLoggedIn() ? 'screen-home' : 'screen-login');
+    // --- Core AI Game Logic ---
+    function onPoseResults(results) {
+        if(!gameActive) return;
+
+        // Draw skeletons (Optional but good for feedback)
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        if (results.poseLandmarks && !cooldown) {
+            // Get landmarks (15: Left Wrist, 16: Right Wrist, 19: Left Index, 20: Right Index)
+            const lm = results.poseLandmarks;
+            const pointsToCheck = [lm[15], lm[16], lm[19], lm[20]]; 
+            
+            // Draw points
+            ctx.fillStyle = '#ff4757';
+            pointsToCheck.forEach(p => {
+                if(p && p.visibility > 0.5) {
+                    const mapped = getScreenCoords(p.x, p.y);
+                    ctx.beginPath();
+                    ctx.arc(mapped.x, mapped.y, 15, 0, 2*Math.PI);
+                    ctx.fill();
+                    ctx.strokeStyle = 'white';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                }
+            });
+
+            checkCollision(pointsToCheck);
+        }
+    }
+
+    // Convert Normalized Video Coordinates to actual Screen Pixels mapping (considering object-fit: cover + mirror)
+    function getScreenCoords(normX, normY) {
+        const videoRatio = video.videoWidth / video.videoHeight;
+        const screenRatio = window.innerWidth / window.innerHeight;
+        let renderedW, renderedH, offsetX = 0, offsetY = 0;
+
+        if (screenRatio > videoRatio) {
+            renderedW = window.innerWidth;
+            renderedH = window.innerWidth / videoRatio;
+            offsetY = (renderedH - window.innerHeight) / 2;
+        } else {
+            renderedH = window.innerHeight;
+            renderedW = window.innerHeight * videoRatio;
+            offsetX = (renderedW - window.innerWidth) / 2;
+        }
+
+        const flippedX = 1 - normX; // Mirror logic
+        const screenX = (flippedX * renderedW) - offsetX;
+        const screenY = (normY * renderedH) - offsetY;
+        return { x: screenX, y: screenY };
+    }
+
+    function checkCollision(points) {
+        const leftRect = boxLeft.getBoundingClientRect();
+        const rightRect = boxRight.getBoundingClientRect();
+        
+        let touchedLeft = false;
+        let touchedRight = false;
+
+        points.forEach(p => {
+            if(!p || p.visibility < 0.5) return;
+            const pos = getScreenCoords(p.x, p.y);
+            
+            if (pos.x >= leftRect.left && pos.x <= leftRect.right &&
+                pos.y >= leftRect.top && pos.y <= leftRect.bottom) {
+                touchedLeft = true;
+            }
+            if (pos.x >= rightRect.left && pos.x <= rightRect.right &&
+                pos.y >= rightRect.top && pos.y <= rightRect.bottom) {
+                touchedRight = true;
+            }
+        });
+
+        if (touchedLeft) handleAnswer(0, boxLeft);
+        if (touchedRight) handleAnswer(1, boxRight);
+    }
+
+    function handleAnswer(selectedIndex, element) {
+        cooldown = true; // prevent multiple triggers
+        element.style.transform = "scale(1.2)";
+        
+        const q = questions[currentQuestionIndex];
+        const isCorrect = (selectedIndex === q.correct);
+
+        if (isCorrect) {
+            score += 10;
+            successCount++;
+            streakCount++;
+            playSound('correct');
+            showFeedback("✔️ ถูกต้อง!", "#2ed573");
+            element.style.background = "#2ed573";
+            
+            // Bonus Logic
+            if(streakCount === 5) {
+                setTimeout(() => {
+                    score += 50;
+                    playSound('bonus');
+                    showFeedback("🔥 BONUS ROUND +50 🔥", "#ff4757");
+                    document.getElementById('score-display').innerText = score;
+                    streakCount = 0;
+                }, 1000);
+            }
+        } else {
+            score -= 5;
+            streakCount = 0;
+            playSound('wrong');
+            showFeedback("❌ ผิดครับ", "#ff4757");
+            element.style.background = "#ff4757";
+            
+            // Highlight correct answer
+            const correctEl = q.correct === 0 ? boxLeft : boxRight;
+            correctEl.style.background = "#2ed573";
+        }
+
+        document.getElementById('score-display').innerText = score;
+
+        setTimeout(() => {
+            element.style.transform = "scale(1)";
+            currentQuestionIndex++;
+            if (currentQuestionIndex < questions.length) {
+                loadQuestion();
+                cooldown = false;
+            } else {
+                endGame();
+            }
+        }, 2000);
+    }
+
+    function showFeedback(text, color) {
+        feedback.innerText = text;
+        feedback.style.color = color;
+        feedback.style.opacity = 1;
+        feedback.style.transform = "translate(-50%, -50%) scale(1.2)";
+        setTimeout(() => {
+            feedback.style.opacity = 0;
+            feedback.style.transform = "translate(-50%, -50%) scale(1)";
+        }, 1500);
+    }
+
+    // --- Game Flow Control ---
+    function startGame() {
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('game-container').classList.remove('hidden');
+        
+        // Prepare questions based on settings
+        questions = allQuestions.slice(0, maxQuestions);
+        currentQuestionIndex = 0;
+        score = 0;
+        successCount = 0;
+        streakCount = 0;
+        document.getElementById('score-display').innerText = "0";
+        document.getElementById('q-total').innerText = maxQuestions;
+        
+        loadQuestion();
+        gameActive = true;
+        cooldown = false;
+    }
+
+    function loadQuestion() {
+        // Reset Box Colors based on settings
+        const colorSetting = document.getElementById('setting-color').value;
+        if(colorSetting === 'alt') {
+            boxLeft.style.background = "#ff7f50";
+            boxRight.style.background = "#2ed573";
+        } else {
+            boxLeft.style.background = "var(--box-color-1)";
+            boxRight.style.background = "var(--box-color-2)";
+        }
+
+        const q = questions[currentQuestionIndex];
+        document.getElementById('q-number').innerText = currentQuestionIndex + 1;
+        
+        document.getElementById('q-word-1').innerText = q.choices[0];
+        document.getElementById('q-word-2').innerText = q.choices[1];
+        
+        boxLeft.innerText = q.choices[0];
+        boxRight.innerText = q.choices[1];
+    }
+
+    function endGame() {
+        gameActive = false;
+        document.getElementById('game-container').classList.add('hidden');
+        document.getElementById('end-screen').classList.remove('hidden');
+        document.getElementById('final-score').innerText = `ทำคะแนนได้: ${score} คะแนน\nแตะถูกต้อง: ${successCount} ครั้ง`;
+    }
+
+    // --- Settings & Leaderboard ---
+    function showSettings() { document.getElementById('settings-screen').classList.remove('hidden'); }
+    
+    function saveSettings() {
+        maxQuestions = parseInt(document.getElementById('setting-q-count').value);
+        const zigzag = document.getElementById('setting-zigzag').checked;
+        if(zigzag) document.getElementById('zigzag-mode').classList.remove('hidden');
+        else document.getElementById('zigzag-mode').classList.add('hidden');
+        
+        document.getElementById('settings-screen').classList.add('hidden');
+    }
+
+    function saveScoreAndRestart() {
+        const name = document.getElementById('player-name').value || "นักเรียนนิรนาม";
+        const date = new Date().toLocaleDateString('th-TH');
+        
+        let leaderboard = JSON.parse(localStorage.getItem('maekok_leaderboard')) || [];
+        leaderboard.push({ name, score, date });
+        leaderboard.sort((a, b) => b.score - a.score);
+        leaderboard = leaderboard.slice(0, 10);
+        localStorage.setItem('maekok_leaderboard', JSON.stringify(leaderboard));
+
+        document.getElementById('player-name').value = "";
+        document.getElementById('end-screen').classList.add('hidden');
+        document.getElementById('start-screen').classList.remove('hidden');
+    }
+
+    function showLeaderboard() {
+        let leaderboard = JSON.parse(localStorage.getItem('maekok_leaderboard')) || [];
+        let html = '<table><tr><th>อันดับ</th><th>ชื่อ</th><th>คะแนน</th><th>วันที่</th></tr>';
+        if(leaderboard.length === 0) {
+            html += '<tr><td colspan="4" style="text-align:center;">ยังไม่มีข้อมูลคะแนน</td></tr>';
+        } else {
+            leaderboard.forEach((p, index) => {
+                html += `<tr><td>${index+1}</td><td>${p.name}</td><td>${p.score}</td><td>${p.date}</td></tr>`;
+            });
+        }
+        html += '</table>';
+        document.getElementById('leaderboard-content').innerHTML = html;
+        document.getElementById('leaderboard-screen').classList.remove('hidden');
+    }
+
 </script>
 </body>
 </html>
