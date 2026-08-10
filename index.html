@@ -731,16 +731,34 @@
 
     function showLeaderboard() {
         let leaderboard = JSON.parse(localStorage.getItem('maekok_leaderboard')) || [];
-        let html = '<table><tr><th>อันดับ</th><th>ชื่อ</th><th>คะแนน</th><th>วันที่</th></tr>';
+
+        // สร้างตารางด้วย DOM API ไม่ใช้ innerHTML เพราะชื่อผู้เล่นเป็นข้อความที่เด็กพิมพ์เอง
+        // ถ้าพิมพ์แท็ก HTML เข้ามาจะกลายเป็นโค้ดที่รันจริงบนเครื่องนั้น
+        const table = document.createElement('table');
+        const head = table.insertRow();
+        ['อันดับ', 'ชื่อ', 'คะแนน', 'วันที่'].forEach(t => {
+            const th = document.createElement('th');
+            th.textContent = t;
+            head.appendChild(th);
+        });
+
         if(leaderboard.length === 0) {
-            html += '<tr><td colspan="4" style="text-align:center;">ยังไม่มีข้อมูลคะแนน</td></tr>';
+            const cell = table.insertRow().insertCell();
+            cell.colSpan = 4;
+            cell.style.textAlign = 'center';
+            cell.textContent = 'ยังไม่มีข้อมูลคะแนน';
         } else {
             leaderboard.forEach((p, index) => {
-                html += `<tr><td>${index+1}</td><td>${p.name}</td><td>${p.score}</td><td>${p.date}</td></tr>`;
+                const row = table.insertRow();
+                [index+1, p.name, p.score, p.date].forEach(v => {
+                    row.insertCell().textContent = v;
+                });
             });
         }
-        html += '</table>';
-        document.getElementById('leaderboard-content').innerHTML = html;
+
+        const holder = document.getElementById('leaderboard-content');
+        holder.textContent = '';
+        holder.appendChild(table);
         document.getElementById('leaderboard-screen').classList.remove('hidden');
     }
 
