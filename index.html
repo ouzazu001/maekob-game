@@ -6,10 +6,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="เกมแม่กบ">
+    <meta name="apple-mobile-web-app-title" content="เกมแม่กก">
     <meta name="theme-color" content="#E8F5E9">
-    <title>เกม AI มาตราตัวสะกด แม่กบ</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐸</text></svg>">
+    <title>เกม AI มาตราตัวสะกด แม่กก</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐔</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 
     <!-- TensorFlow.js + MoveNet (ตรึงเวอร์ชันไว้ เพื่อไม่ให้ CDN อัปเดตแล้วเกมพัง) -->
@@ -399,7 +399,7 @@
 
     <!-- หน้าแรก -->
     <div id="screen-home" class="screen">
-        <h1>เกม มาตราตัวสะกด "แม่กบ"</h1>
+        <h1>เกม มาตราตัวสะกด "แม่กก"</h1>
         <button onclick="startGame()">▶ เริ่มเกม</button>
         <button class="btn-secondary" onclick="showScreen('screen-settings')">⚙️ โหมดครู (ตั้งค่า)</button>
         <button class="btn-secondary" onclick="showLeaderboard()">🏆 ตารางคะแนน</button>
@@ -468,7 +468,7 @@
                 </div>
 
                 <div id="question-box">
-                    <span id="q-text">ข้อที่ 1</span> <span class="plus-sign">+</span> <span style="color:#2196F3;">แม่กบ</span>
+                    <span id="q-text">ข้อที่ 1</span> <span class="plus-sign">+</span> <span style="color:#2196F3;">แม่กก</span>
                 </div>
 
                 <div id="ans-left" class="answer-box"><div class="fill"></div><span class="label">คำตอบซ้าย</span></div>
@@ -510,8 +510,8 @@
        หมายเหตุ: เก็บเป็น SHA-256 ไม่ได้เก็บรหัสตรง ๆ ในไฟล์
        แต่เป็นการตรวจฝั่งเบราว์เซอร์ จึงกันได้แค่ระดับ "ไม่ให้คนทั่วไปเข้าเล่น"
     ========================================= */
-    const PASSWORD_HASH = '1718c24b10aeb8099e3fc44960ab6949ab76a267352459f203ea1036bec382c2';
-    const AUTH_KEY = 'maekob_auth';
+    const PASSWORD_HASH = 'd3937fdcb00540f9b25342bb876b1ba26dd349b37226b9b6193b0efa539160ab';
+    const AUTH_KEY = 'maekok_auth';
 
     async function sha256(text) {
         const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
@@ -561,26 +561,26 @@
        ฐานข้อมูลโจทย์
     ========================================= */
     const rawQuestions = [
-        { q: "๑ พยางค์", left: "กบ", right: "นก", ans: "กบ" },
-        { q: "๑ พยางค์", left: "ลม", right: "รูป", ans: "รูป" },
-        { q: "๑ พยางค์", left: "ภาพ", right: "ดาว", ans: "ภาพ" },
-        { q: "๑ พยางค์", left: "บ้าน", right: "ตอบ", ans: "ตอบ" },
-        { q: "๑ พยางค์", left: "กราบ", right: "กิน", ans: "กราบ" },
-        { q: "๑ พยางค์", left: "เล็บ", right: "ลม", ans: "เล็บ" },
-        { q: "๑ พยางค์", left: "ปาก", right: "รูป", ans: "รูป" },
-        { q: "๑ พยางค์", left: "ภพ", right: "แมว", ans: "ภพ" },
-        { q: "๑ พยางค์", left: "ชอบ", right: "นอน", ans: "ชอบ" },
-        { q: "๑ พยางค์", left: "จับ", right: "ดิน", ans: "จับ" },
-        { q: "๒ พยางค์", left: "รูปภาพ", right: "มะม่วง", ans: "รูปภาพ" },
-        { q: "๒ พยางค์", left: "คำตอบ", right: "อาหาร", ans: "คำตอบ" },
-        { q: "๒ พยางค์", left: "โทรศัพท์", right: "โรงเรียน", ans: "โทรศัพท์" },
-        { q: "๒ พยางค์", left: "เคารพ", right: "มะนาว", ans: "เคารพ" },
-        { q: "๒ พยางค์", left: "ประทับ", right: "กระดาษ", ans: "ประทับ" },
-        { q: "๒ พยางค์", left: "สัปดาห์", right: "นาฬิกา", ans: "สัปดาห์" },
+        { q: "๑ พยางค์", left: "นก", right: "กบ", ans: "นก" },
+        { q: "๑ พยางค์", left: "ลม", right: "ปาก", ans: "ปาก" },
+        { q: "๑ พยางค์", left: "เลข", right: "ดาว", ans: "เลข" },
+        { q: "๑ พยางค์", left: "บ้าน", right: "โรค", ans: "โรค" },
+        { q: "๑ พยางค์", left: "มาก", right: "กิน", ans: "มาก" },
+        { q: "๑ พยางค์", left: "ลูก", right: "น้ำ", ans: "ลูก" },
+        { q: "๑ พยางค์", left: "เมฆ", right: "แมว", ans: "เมฆ" },
+        { q: "๑ พยางค์", left: "หนาว", right: "สุข", ans: "สุข" },
+        { q: "๑ พยางค์", left: "จาก", right: "จับ", ans: "จาก" },
+        { q: "๑ พยางค์", left: "เท้า", right: "ถูก", ans: "ถูก" },
         { q: "๒ พยางค์", left: "ต้นไม้", right: "สกปรก", ans: "สกปรก" },
-        { q: "๒ พยางค์", left: "หนังสือ", right: "คำศัพท์", ans: "คำศัพท์" },
-        { q: "๒ พยางค์", left: "สุภาพ", right: "น้ำปลา", ans: "สุภาพ" },
-        { q: "๒ พยางค์", left: "อพยพ", right: "แม่น้ำ", ans: "อพยพ" }
+        { q: "๒ พยางค์", left: "ความสุข", right: "มะม่วง", ans: "ความสุข" },
+        { q: "๒ พยางค์", left: "มะกอก", right: "อาหาร", ans: "มะกอก" },
+        { q: "๒ พยางค์", left: "โรงเรียน", right: "กระดูก", ans: "กระดูก" },
+        { q: "๒ พยางค์", left: "ระลึก", right: "มะนาว", ans: "ระลึก" },
+        { q: "๒ พยางค์", left: "กระรอก", right: "กระดาษ", ans: "กระรอก" },
+        { q: "๒ พยางค์", left: "นาฬิกา", right: "สนุก", ans: "สนุก" },
+        { q: "๒ พยางค์", left: "หนังสือ", right: "กระบอก", ans: "กระบอก" },
+        { q: "๒ พยางค์", left: "จิ้งจก", right: "น้ำปลา", ans: "จิ้งจก" },
+        { q: "๒ พยางค์", left: "ปลูกผัก", right: "แม่น้ำ", ans: "ปลูกผัก" }
     ];
 
     /* =========================================
@@ -690,13 +690,13 @@
         config.dwellMs = parseInt(document.getElementById('set-dwell').value, 10);
 
         document.documentElement.style.setProperty('--frame-color', config.frameColor);
-        try { localStorage.setItem('maekob_cfg', JSON.stringify(config)); } catch (e) {}
+        try { localStorage.setItem('maekok_cfg', JSON.stringify(config)); } catch (e) {}
         showScreen('screen-home');
     }
 
     function loadSettings() {
         try {
-            const saved = JSON.parse(localStorage.getItem('maekob_cfg'));
+            const saved = JSON.parse(localStorage.getItem('maekok_cfg'));
             if (saved) config = Object.assign(config, saved);
         } catch (e) {}
         document.getElementById('set-questions').value = String(config.totalQ);
@@ -708,7 +708,7 @@
 
     function readLeaderboard() {
         try {
-            const lb = JSON.parse(localStorage.getItem('maekob_lb'));
+            const lb = JSON.parse(localStorage.getItem('maekok_lb'));
             return Array.isArray(lb) ? lb : [];
         } catch (e) { return []; }
     }
@@ -748,7 +748,7 @@
         const lb = readLeaderboard();
         lb.push({ name: name.slice(0, 20), score: score, date: new Date().toLocaleDateString('th-TH') });
         try {
-            localStorage.setItem('maekob_lb', JSON.stringify(lb.sort((a, b) => b.score - a.score).slice(0, 50)));
+            localStorage.setItem('maekok_lb', JSON.stringify(lb.sort((a, b) => b.score - a.score).slice(0, 50)));
         } catch (e) {}
         document.getElementById('player-name').value = '';
         showLeaderboard();
@@ -1016,7 +1016,7 @@
             plus.textContent = '+';
             const part2 = document.createElement('span');
             part2.style.color = '#2196F3';
-            part2.textContent = 'แม่กบ';
+            part2.textContent = 'แม่กก';
             qBox.append(part1, plus, part2);
             leftBox.style.borderColor = config.frameColor;
             rightBox.style.borderColor = config.frameColor;
