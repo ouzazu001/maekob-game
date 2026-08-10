@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>เกม AI มาตราตัวสะกด แม่กบ</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐸</text></svg>">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 
     <!-- TensorFlow.js + MoveNet (ตรึงเวอร์ชันไว้ เพื่อไม่ให้ CDN อัปเดตแล้วเกมพัง) -->
@@ -867,9 +868,11 @@
     function updateStats() {
         document.getElementById('score-display').textContent = score;
         document.getElementById('hit-count').textContent = hitCount;
-        const total = questionsList.length || config.totalQ;
+        // นับเฉพาะข้อปกติ ไม่รวมรอบโบนัส
+        const total = questionsList.filter(q => !q.isBonus).length || config.totalQ;
+        const current = questionsList[currentQuestionIndex];
         document.getElementById('q-progress').textContent =
-            Math.min(currentQuestionIndex + 1, total) + '/' + total;
+            (current && current.isBonus) ? 'BONUS ⭐' : (Math.min(currentQuestionIndex + 1, total) + '/' + total);
     }
 
     async function gameLoop(now) {
